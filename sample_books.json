@@ -1,0 +1,502 @@
+[
+  {
+    "ma_sach": "B001",
+    "ten_sach": "Thành thạo Data Science Thực chiến",
+    "tac_gia": "Trần Gia Khánh"
+  },
+  {
+    "ma_sach": "B002",
+    "ten_sach": "Giáo trình An ninh mạng Pro",
+    "tac_gia": "Trần Minh Long"
+  },
+  {
+    "ma_sach": "B003",
+    "ten_sach": "Giáo trình JavaScript Thực chiến",
+    "tac_gia": "Phan Quốc Sơn"
+  },
+  {
+    "ma_sach": "B004",
+    "ten_sach": "Thành thạo JavaScript Hiện đại",
+    "tac_gia": "Phan Hữu Giang"
+  },
+  {
+    "ma_sach": "B005",
+    "ten_sach": "Giáo trình An ninh mạng Thực chiến",
+    "tac_gia": "Lê Thành Cường"
+  },
+  {
+    "ma_sach": "B006",
+    "ten_sach": "Nhập môn C# Hiện đại",
+    "tac_gia": "Đặng Văn Bình"
+  },
+  {
+    "ma_sach": "B007",
+    "ten_sach": "Tối ưu hóa C# Cơ bản",
+    "tac_gia": "Nguyễn Xuân Hùng"
+  },
+  {
+    "ma_sach": "B008",
+    "ten_sach": "Thành thạo Machine Learning Hiện đại",
+    "tac_gia": "Phan Quốc An"
+  },
+  {
+    "ma_sach": "B009",
+    "ten_sach": "Tìm hiểu Deep Learning Hiện đại",
+    "tac_gia": "Võ Thị Cường"
+  },
+  {
+    "ma_sach": "B010",
+    "ten_sach": "Bí kíp An ninh mạng Nâng cao",
+    "tac_gia": "Hoàng Minh An"
+  },
+  {
+    "ma_sach": "B011",
+    "ten_sach": "Tối ưu hóa Machine Learning Toàn tập",
+    "tac_gia": "Đặng Minh Giang"
+  },
+  {
+    "ma_sach": "B012",
+    "ten_sach": "Nhập môn ReactJS Version 2.0",
+    "tac_gia": "Hoàng Ngọc Hải"
+  },
+  {
+    "ma_sach": "B013",
+    "ten_sach": "Tìm hiểu ReactJS Nâng cao",
+    "tac_gia": "Trần Xuân Khánh"
+  },
+  {
+    "ma_sach": "B014",
+    "ten_sach": "Bí kíp C++ Nâng cao",
+    "tac_gia": "Huỳnh Ngọc Phúc"
+  },
+  {
+    "ma_sach": "B015",
+    "ten_sach": "Giáo trình Data Science Nâng cao",
+    "tac_gia": "Đặng Minh Long"
+  },
+  {
+    "ma_sach": "B016",
+    "ten_sach": "Tìm hiểu Machine Learning Hiện đại",
+    "tac_gia": "Trần Thành Phúc"
+  },
+  {
+    "ma_sach": "B017",
+    "ten_sach": "Bí kíp JavaScript Pro",
+    "tac_gia": "Trần Thị Hải"
+  },
+  {
+    "ma_sach": "B018",
+    "ten_sach": "Nhập môn Docker Toàn tập",
+    "tac_gia": "Vũ Quốc Cường"
+  },
+  {
+    "ma_sach": "B019",
+    "ten_sach": "Giáo trình Docker Toàn tập",
+    "tac_gia": "Lê Gia Giang"
+  },
+  {
+    "ma_sach": "B020",
+    "ten_sach": "Nhập môn Python Cơ bản",
+    "tac_gia": "Phạm Đức Hùng"
+  },
+  {
+    "ma_sach": "B021",
+    "ten_sach": "Tìm hiểu C# Version 2.0",
+    "tac_gia": "Phạm Xuân Bình"
+  },
+  {
+    "ma_sach": "B022",
+    "ten_sach": "Nhập môn Java Version 2.0",
+    "tac_gia": "Phạm Quốc Hải"
+  },
+  {
+    "ma_sach": "B023",
+    "ten_sach": "Giáo trình JavaScript Toàn tập",
+    "tac_gia": "Trần Thị Cường"
+  },
+  {
+    "ma_sach": "B024",
+    "ten_sach": "Lập trình Data Science Hiện đại",
+    "tac_gia": "Vũ Thành Sơn"
+  },
+  {
+    "ma_sach": "B025",
+    "ten_sach": "Lập trình An ninh mạng Nâng cao",
+    "tac_gia": "Huỳnh Quốc Giang"
+  },
+  {
+    "ma_sach": "B026",
+    "ten_sach": "Bí kíp Python Cơ bản",
+    "tac_gia": "Nguyễn Văn Quân"
+  },
+  {
+    "ma_sach": "B027",
+    "ten_sach": "Nghệ thuật ReactJS Thực chiến",
+    "tac_gia": "Phạm Hữu Hùng"
+  },
+  {
+    "ma_sach": "B028",
+    "ten_sach": "Nhập môn C# Hiện đại",
+    "tac_gia": "Phan Xuân Phúc"
+  },
+  {
+    "ma_sach": "B029",
+    "ten_sach": "Bí kíp Data Science Hiện đại",
+    "tac_gia": "Hoàng Minh Khánh"
+  },
+  {
+    "ma_sach": "B030",
+    "ten_sach": "Nhập môn C++ Version 2.0",
+    "tac_gia": "Hoàng Xuân Quân"
+  },
+  {
+    "ma_sach": "B031",
+    "ten_sach": "Tối ưu hóa Data Science Cơ bản",
+    "tac_gia": "Phan Quốc Long"
+  },
+  {
+    "ma_sach": "B032",
+    "ten_sach": "Tìm hiểu C++ Cơ bản",
+    "tac_gia": "Hoàng Thành Bình"
+  },
+  {
+    "ma_sach": "B033",
+    "ten_sach": "Lập trình NodeJS Cơ bản",
+    "tac_gia": "Trần Xuân An"
+  },
+  {
+    "ma_sach": "B034",
+    "ten_sach": "Tối ưu hóa C++ Cơ bản",
+    "tac_gia": "Võ Ngọc Sơn"
+  },
+  {
+    "ma_sach": "B035",
+    "ten_sach": "Tìm hiểu Data Science Hiện đại",
+    "tac_gia": "Phan Thành Quân"
+  },
+  {
+    "ma_sach": "B036",
+    "ten_sach": "Nghệ thuật NodeJS Thực chiến",
+    "tac_gia": "Huỳnh Minh Giang"
+  },
+  {
+    "ma_sach": "B037",
+    "ten_sach": "Bí kíp Java Thực chiến",
+    "tac_gia": "Vũ Ngọc Giang"
+  },
+  {
+    "ma_sach": "B038",
+    "ten_sach": "Giáo trình ReactJS Thực chiến",
+    "tac_gia": "Nguyễn Gia Giang"
+  },
+  {
+    "ma_sach": "B039",
+    "ten_sach": "Bí kíp Docker Toàn tập",
+    "tac_gia": "Lê Đức Giang"
+  },
+  {
+    "ma_sach": "B040",
+    "ten_sach": "Thành thạo Machine Learning Version 2.0",
+    "tac_gia": "Huỳnh Thành Dũng"
+  },
+  {
+    "ma_sach": "B041",
+    "ten_sach": "Lập trình Docker Nâng cao",
+    "tac_gia": "Võ Gia Long"
+  },
+  {
+    "ma_sach": "B042",
+    "ten_sach": "Nghệ thuật Data Science Version 2.0",
+    "tac_gia": "Huỳnh Xuân Long"
+  },
+  {
+    "ma_sach": "B043",
+    "ten_sach": "Nhập môn Data Science Version 2.0",
+    "tac_gia": "Trần Quốc Cường"
+  },
+  {
+    "ma_sach": "B044",
+    "ten_sach": "Tìm hiểu ReactJS Cơ bản",
+    "tac_gia": "Võ Gia Long"
+  },
+  {
+    "ma_sach": "B045",
+    "ten_sach": "Tối ưu hóa C# Toàn tập",
+    "tac_gia": "Vũ Văn Phúc"
+  },
+  {
+    "ma_sach": "B046",
+    "ten_sach": "Bí kíp C++ Nâng cao",
+    "tac_gia": "Lê Ngọc Hùng"
+  },
+  {
+    "ma_sach": "B047",
+    "ten_sach": "Nhập môn ReactJS Toàn tập",
+    "tac_gia": "Đặng Văn Hải"
+  },
+  {
+    "ma_sach": "B048",
+    "ten_sach": "Nghệ thuật Java Version 2.0",
+    "tac_gia": "Huỳnh Hữu Hùng"
+  },
+  {
+    "ma_sach": "B049",
+    "ten_sach": "Lập trình C++ Pro",
+    "tac_gia": "Phạm Đức Bình"
+  },
+  {
+    "ma_sach": "B050",
+    "ten_sach": "Thành thạo Python Pro",
+    "tac_gia": "Huỳnh Thành Dũng"
+  },
+  {
+    "ma_sach": "B051",
+    "ten_sach": "Nghệ thuật NodeJS Hiện đại",
+    "tac_gia": "Phan Văn Hải"
+  },
+  {
+    "ma_sach": "B052",
+    "ten_sach": "Nhập môn Deep Learning Pro",
+    "tac_gia": "Phan Gia Hùng"
+  },
+  {
+    "ma_sach": "B053",
+    "ten_sach": "Lập trình Machine Learning Toàn tập",
+    "tac_gia": "Võ Quốc Khánh"
+  },
+  {
+    "ma_sach": "B054",
+    "ten_sach": "Bí kíp NodeJS Cơ bản",
+    "tac_gia": "Huỳnh Văn Sơn"
+  },
+  {
+    "ma_sach": "B055",
+    "ten_sach": "Tìm hiểu C# Thực chiến",
+    "tac_gia": "Hoàng Đức Hải"
+  },
+  {
+    "ma_sach": "B056",
+    "ten_sach": "Tối ưu hóa NodeJS Hiện đại",
+    "tac_gia": "Hoàng Thị Long"
+  },
+  {
+    "ma_sach": "B057",
+    "ten_sach": "Nghệ thuật Machine Learning Toàn tập",
+    "tac_gia": "Hoàng Xuân Hùng"
+  },
+  {
+    "ma_sach": "B058",
+    "ten_sach": "Nhập môn ReactJS Hiện đại",
+    "tac_gia": "Hoàng Thị Nam"
+  },
+  {
+    "ma_sach": "B059",
+    "ten_sach": "Nhập môn Python Pro",
+    "tac_gia": "Trần Xuân An"
+  },
+  {
+    "ma_sach": "B060",
+    "ten_sach": "Nghệ thuật JavaScript Hiện đại",
+    "tac_gia": "Phạm Thành Long"
+  },
+  {
+    "ma_sach": "B061",
+    "ten_sach": "Tối ưu hóa Deep Learning Thực chiến",
+    "tac_gia": "Hoàng Gia Bình"
+  },
+  {
+    "ma_sach": "B062",
+    "ten_sach": "Lập trình An ninh mạng Toàn tập",
+    "tac_gia": "Lê Minh Phúc"
+  },
+  {
+    "ma_sach": "B063",
+    "ten_sach": "Thành thạo Docker Thực chiến",
+    "tac_gia": "Huỳnh Văn Phúc"
+  },
+  {
+    "ma_sach": "B064",
+    "ten_sach": "Nhập môn ReactJS Hiện đại",
+    "tac_gia": "Đặng Văn Bình"
+  },
+  {
+    "ma_sach": "B065",
+    "ten_sach": "Nghệ thuật Machine Learning Pro",
+    "tac_gia": "Đặng Gia Khánh"
+  },
+  {
+    "ma_sach": "B066",
+    "ten_sach": "Lập trình Deep Learning Pro",
+    "tac_gia": "Đặng Thành Phúc"
+  },
+  {
+    "ma_sach": "B067",
+    "ten_sach": "Nghệ thuật C# Toàn tập",
+    "tac_gia": "Phan Thành Hùng"
+  },
+  {
+    "ma_sach": "B068",
+    "ten_sach": "Thành thạo C++ Version 2.0",
+    "tac_gia": "Phạm Thành An"
+  },
+  {
+    "ma_sach": "B069",
+    "ten_sach": "Thành thạo ReactJS Pro",
+    "tac_gia": "Vũ Thành Long"
+  },
+  {
+    "ma_sach": "B070",
+    "ten_sach": "Giáo trình Java Version 2.0",
+    "tac_gia": "Đặng Quốc Nam"
+  },
+  {
+    "ma_sach": "B071",
+    "ten_sach": "Nhập môn C# Thực chiến",
+    "tac_gia": "Trần Hữu Hùng"
+  },
+  {
+    "ma_sach": "B072",
+    "ten_sach": "Thành thạo Deep Learning Hiện đại",
+    "tac_gia": "Đặng Hữu Giang"
+  },
+  {
+    "ma_sach": "B073",
+    "ten_sach": "Lập trình Java Thực chiến",
+    "tac_gia": "Phạm Đức Quân"
+  },
+  {
+    "ma_sach": "B074",
+    "ten_sach": "Thành thạo NodeJS Pro",
+    "tac_gia": "Trần Thành Sơn"
+  },
+  {
+    "ma_sach": "B075",
+    "ten_sach": "Thành thạo JavaScript Toàn tập",
+    "tac_gia": "Nguyễn Ngọc Khánh"
+  },
+  {
+    "ma_sach": "B076",
+    "ten_sach": "Tối ưu hóa Deep Learning Version 2.0",
+    "tac_gia": "Vũ Thành Giang"
+  },
+  {
+    "ma_sach": "B077",
+    "ten_sach": "Lập trình Deep Learning Thực chiến",
+    "tac_gia": "Hoàng Hữu Sơn"
+  },
+  {
+    "ma_sach": "B078",
+    "ten_sach": "Lập trình C# Toàn tập",
+    "tac_gia": "Vũ Gia An"
+  },
+  {
+    "ma_sach": "B079",
+    "ten_sach": "Nghệ thuật C++ Version 2.0",
+    "tac_gia": "Vũ Văn Bình"
+  },
+  {
+    "ma_sach": "B080",
+    "ten_sach": "Nhập môn C# Cơ bản",
+    "tac_gia": "Lê Đức An"
+  },
+  {
+    "ma_sach": "B081",
+    "ten_sach": "Bí kíp ReactJS Nâng cao",
+    "tac_gia": "Nguyễn Ngọc Phúc"
+  },
+  {
+    "ma_sach": "B082",
+    "ten_sach": "Tìm hiểu NodeJS Pro",
+    "tac_gia": "Hoàng Ngọc An"
+  },
+  {
+    "ma_sach": "B083",
+    "ten_sach": "Lập trình Python Toàn tập",
+    "tac_gia": "Phạm Thị Bình"
+  },
+  {
+    "ma_sach": "B084",
+    "ten_sach": "Nghệ thuật An ninh mạng Hiện đại",
+    "tac_gia": "Võ Minh Cường"
+  },
+  {
+    "ma_sach": "B085",
+    "ten_sach": "Tìm hiểu C# Version 2.0",
+    "tac_gia": "Phạm Văn Cường"
+  },
+  {
+    "ma_sach": "B086",
+    "ten_sach": "Giáo trình An ninh mạng Hiện đại",
+    "tac_gia": "Phan Xuân Long"
+  },
+  {
+    "ma_sach": "B087",
+    "ten_sach": "Nhập môn Java Thực chiến",
+    "tac_gia": "Trần Xuân Quân"
+  },
+  {
+    "ma_sach": "B088",
+    "ten_sach": "Bí kíp Machine Learning Version 2.0",
+    "tac_gia": "Đặng Văn Giang"
+  },
+  {
+    "ma_sach": "B089",
+    "ten_sach": "Nghệ thuật Machine Learning Pro",
+    "tac_gia": "Hoàng Gia Sơn"
+  },
+  {
+    "ma_sach": "B090",
+    "ten_sach": "Tìm hiểu Machine Learning Pro",
+    "tac_gia": "Vũ Hữu Long"
+  },
+  {
+    "ma_sach": "B091",
+    "ten_sach": "Tối ưu hóa Docker Hiện đại",
+    "tac_gia": "Nguyễn Ngọc Cường"
+  },
+  {
+    "ma_sach": "B092",
+    "ten_sach": "Tối ưu hóa C++ Version 2.0",
+    "tac_gia": "Vũ Xuân Long"
+  },
+  {
+    "ma_sach": "B093",
+    "ten_sach": "Nhập môn C++ Hiện đại",
+    "tac_gia": "Phan Minh Hải"
+  },
+  {
+    "ma_sach": "B094",
+    "ten_sach": "Nhập môn An ninh mạng Nâng cao",
+    "tac_gia": "Huỳnh Ngọc Phúc"
+  },
+  {
+    "ma_sach": "B095",
+    "ten_sach": "Tìm hiểu Deep Learning Nâng cao",
+    "tac_gia": "Võ Văn Long"
+  },
+  {
+    "ma_sach": "B096",
+    "ten_sach": "Nghệ thuật Machine Learning Pro",
+    "tac_gia": "Võ Ngọc Phúc"
+  },
+  {
+    "ma_sach": "B097",
+    "ten_sach": "Nhập môn Java Cơ bản",
+    "tac_gia": "Nguyễn Ngọc Khánh"
+  },
+  {
+    "ma_sach": "B098",
+    "ten_sach": "Lập trình Deep Learning Version 2.0",
+    "tac_gia": "Lê Văn An"
+  },
+  {
+    "ma_sach": "B099",
+    "ten_sach": "Nghệ thuật ReactJS Hiện đại",
+    "tac_gia": "Huỳnh Văn An"
+  },
+  {
+    "ma_sach": "B100",
+    "ten_sach": "Nhập môn C# Cơ bản",
+    "tac_gia": "Phan Minh Hùng"
+  }
+]

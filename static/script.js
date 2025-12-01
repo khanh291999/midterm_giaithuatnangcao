@@ -1,442 +1,334 @@
-// Load all data when page loads
-document.addEventListener('DOMContentLoaded', function() {
+// --- CẤU HÌNH & CSS ---
+const CONFIG = { NODE_WIDTH: 60, NODE_SPACING: 30, LEVEL_HEIGHT: 120 };
+
+const style = document.createElement('style');
+style.innerHTML = `
+    @keyframes green-key-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); transform: scale(1); }
+        50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); transform: scale(1.3); background: #16a34a !important; border-color: #fff; }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); transform: scale(1); }
+    }
+    .newly-added-key {
+        animation: green-key-pulse 2s infinite;
+        background: #22c55e !important; color: white !important; border: 2px solid white !important;
+        z-index: 200; position: relative;
+    }
+    
+    /* Style mới cho Node nằm trong đường tìm kiếm */
+    @keyframes search-path-pulse {
+        0% { border-color: #3b82f6; box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+        50% { border-color: #60a5fa; box-shadow: 0 0 15px rgba(59, 130, 246, 0.8); transform: scale(1.02); }
+        100% { border-color: #3b82f6; box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+    }
+    .search-path-node {
+        animation: search-path-pulse 1.5s infinite;
+        border: 2px solid #3b82f6 !important; /* Xanh dương */
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+
+    @keyframes node-affected-pulse {
+        0% { border-color: #f59e0b; } 50% { border-color: #fbbf24; } 100% { border-color: #f59e0b; }
+    }
+    .active-node {
+        animation: node-affected-pulse 1.5s infinite;
+        border: 2px solid #f59e0b !important;
+    }
+`;
+document.head.appendChild(style);
+
+// --- KHỞI TẠO ---
+document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
+    setupEventListeners();
 });
 
-// Tab switching
-function switchTab(tab) {
-    const listTab = document.getElementById('listTab');
-    const treeTab = document.getElementById('treeTab');
-    const listContent = document.getElementById('listContent');
-    const treeContent = document.getElementById('treeContent');
-    
-    if (tab === 'list') {
-        listTab.className = 'tab-button px-6 py-4 text-sm font-semibold text-indigo-600 border-b-2 border-indigo-600';
-        treeTab.className = 'tab-button px-6 py-4 text-sm font-semibold text-gray-500 hover:text-gray-700 border-b-2 border-transparent';
-        listContent.classList.remove('hidden');
-        treeContent.classList.add('hidden');
-    } else {
-        treeTab.className = 'tab-button px-6 py-4 text-sm font-semibold text-indigo-600 border-b-2 border-indigo-600';
-        listTab.className = 'tab-button px-6 py-4 text-sm font-semibold text-gray-500 hover:text-gray-700 border-b-2 border-transparent';
-        treeContent.classList.remove('hidden');
-        listContent.classList.add('hidden');
-    }
-}
-
-// Show toast notification
-function showNotification(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    
-    const colors = {
-        'success': 'from-green-500 to-green-600',
-        'error': 'from-red-500 to-red-600',
-        'info': 'from-blue-500 to-blue-600'
-    };
-    
-    const icons = {
-        'success': 'bi-check-circle-fill',
-        'error': 'bi-x-circle-fill',
-        'info': 'bi-info-circle-fill'
-    };
-    
-    const toast = document.createElement('div');
-    toast.className = `bg-gradient-to-r ${colors[type]} text-white px-6 py-4 rounded-lg shadow-2xl transform transition-all duration-300 flex items-center space-x-3 animate-slide-in`;
-    toast.innerHTML = `
-        <i class="bi ${icons[type]} text-xl"></i>
-        <span class="font-semibold">${message}</span>
-    `;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(400px)';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// Load all data
-function loadAllData() {
-    loadBooks();
-    loadTree();
-}
-
-// Load books
-async function loadBooks() {
-    try {
-        const response = await fetch('/api/books');
-        const books = await response.json();
-        
-        const tbody = document.getElementById('bookTableBody');
-        const bookCount = document.getElementById('bookCount');
-        
-        bookCount.textContent = books.length;
-        
-        if (books.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="px-4 py-16 text-center">
-                        <i class="bi bi-inbox text-gray-300 text-6xl block mb-4"></i>
-                        <p class="text-gray-500 text-lg">Chưa có sách nào trong thư viện</p>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        tbody.innerHTML = books.map((book, index) => `
-            <tr class="hover:bg-gray-50 transition">
-                <td class="px-4 py-3 text-gray-700">${index + 1}</td>
-                <td class="px-4 py-3">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                        ${book.ma_sach}
-                    </span>
-                </td>
-                <td class="px-4 py-3 text-gray-700">${book.ten_sach}</td>
-                <td class="px-4 py-3 text-gray-600">${book.tac_gia}</td>
-                <td class="px-4 py-3 text-center">
-                    <button onclick="deleteBookById('${book.ma_sach}')" 
-                        class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-semibold transition transform hover:scale-105"
-                        title="Xóa sách">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    } catch (error) {
-        console.error('Error loading books:', error);
-        showNotification('Lỗi khi tải danh sách sách', 'error');
-    }
-}
-
-// Load tree structure
-async function loadTree() {
-    try {
-        const response = await fetch('/api/tree');
-        const tree = await response.json();
-        
-        const treeContainer = document.getElementById('treeStructure');
-        
-        if (!tree || !tree.keys || tree.keys.length === 0) {
-            treeContainer.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-16">
-                    <i class="bi bi-tree text-gray-300 text-6xl mb-4"></i>
-                    <p class="text-gray-500 text-lg">Cây B-Tree rỗng</p>
-                </div>
-            `;
-            return;
-        }
-        
-        treeContainer.innerHTML = renderTree(tree);
-    } catch (error) {
-        console.error('Error loading tree:', error);
-        showNotification('Lỗi khi tải cấu trúc cây', 'error');
-    }
-}
-
-// Render tree structure - Beautiful circular nodes with connections
-function renderTree(tree) {
-    if (!tree || !tree.keys || tree.keys.length === 0) {
-        return '<div class="text-center py-16"><i class="bi bi-tree text-gray-400 text-6xl"></i><p class="text-gray-400 mt-4">Cây rỗng</p></div>';
-    }
-    
-    // Build tree structure with levels
-    const levels = buildTreeLevels(tree);
-    
-    let html = '<div class="btree-container" id="btree-container">';
-    html += '<svg class="btree-svg-canvas" id="btree-svg"></svg>';
-    html += '<div class="btree-content">';
-    
-    levels.forEach((level, levelIndex) => {
-        html += `<div class="btree-level" style="animation-delay: ${levelIndex * 0.1}s">`;
-        
-        level.forEach(node => {
-            html += `<div class="btree-node" data-node-id="${node.id}">`;
-            
-            // Render keys in circular nodes
-            node.keys.forEach((key, keyIndex) => {
-                html += `<div class="btree-key" data-key="${key}">${key}</div>`;
-            });
-            
-            // Add leaf label if it's a leaf node
-            if (node.leaf) {
-                html += '<span class="btree-leaf-label">(Lá)</span>';
-            }
-            
-            html += '</div>';
-        });
-        
-        html += '</div>';
+function setupEventListeners() {
+    const addForm = document.getElementById('addBookForm');
+    if (addForm) addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ma = document.getElementById('addMaSach').value.trim();
+        const ten = document.getElementById('addTenSach').value.trim();
+        const tg = document.getElementById('addTacGia').value.trim();
+        if (!ma || !ten || !tg) return showNotification('Thiếu thông tin', 'warning');
+        await addBook({ ma_sach: ma, ten_sach: ten, tac_gia: tg }, ma);
+        addForm.reset();
     });
-    
-    html += '</div></div>';
-    
-    // After rendering, draw connections - use longer delay and requestAnimationFrame
-    setTimeout(() => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                drawConnections(levels);
-            });
-        });
-    }, 300);
-    
-    return html;
+
+    const searchForm = document.getElementById('searchBookForm');
+    if (searchForm) searchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ma = document.getElementById('searchMaSach').value.trim();
+        if (!ma) return showNotification('Nhập mã sách', 'warning');
+        await searchBook(ma);
+    });
+
+    const deleteForm = document.getElementById('deleteBookForm');
+    if (deleteForm) deleteForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ma = document.getElementById('deleteMaSach').value.trim();
+        if (!ma) return showNotification('Nhập mã sách', 'warning');
+        if(confirm(`Xóa sách ${ma}?`)) { await deleteBookById(ma); deleteForm.reset(); }
+    });
 }
 
-// Build tree levels for visualization
-function buildTreeLevels(node, levels = [], level = 0, parentId = null) {
-    if (!node) return levels;
-    
-    // Initialize level array if needed
-    if (!levels[level]) {
-        levels[level] = [];
-    }
-    
-    // Create node with unique ID
-    const nodeId = `node-${level}-${levels[level].length}`;
-    const nodeData = {
-        id: nodeId,
-        keys: node.keys || [],
-        leaf: node.leaf || false,
-        parentId: parentId
-    };
-    
-    levels[level].push(nodeData);
-    
-    // Process children
-    if (node.children && node.children.length > 0) {
-        node.children.forEach(child => {
-            buildTreeLevels(child, levels, level + 1, nodeId);
-        });
-    }
-    
-    return levels;
-}
+// --- CORE FUNCTIONS ---
 
-// Draw SVG connections between nodes
-function drawConnections(levels) {
-    const svg = document.getElementById('btree-svg');
-    const container = document.getElementById('btree-container');
-    
-    if (!svg || !container) {
-        console.log('SVG or container not found');
-        return;
-    }
-    
-    console.log('Drawing connections for levels:', levels.length);
-    
-    // Clear previous connections
-    svg.innerHTML = '';
-    
-    // Force layout recalculation
-    container.offsetHeight;
-    
-    // Set SVG size to match container
-    const containerRect = container.getBoundingClientRect();
-    console.log('Container rect:', containerRect);
-    
-    if (containerRect.width === 0 || containerRect.height === 0) {
-        console.log('Container has no size, retrying...');
-        setTimeout(() => drawConnections(levels), 100);
-        return;
-    }
-    
-    svg.setAttribute('width', containerRect.width);
-    svg.setAttribute('height', containerRect.height);
-    svg.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
-    
-    let lineCount = 0;
-    
-    // Draw connections from parent to children
-    for (let i = 0; i < levels.length - 1; i++) {
-        const currentLevel = levels[i];
-        const nextLevel = levels[i + 1];
-        
-        console.log(`Level ${i}: ${currentLevel.length} nodes, Next level: ${nextLevel.length} nodes`);
-        
-        currentLevel.forEach(parentNode => {
-            const parentElement = document.querySelector(`.btree-node[data-node-id="${parentNode.id}"]`);
-            if (!parentElement) {
-                console.log(`Parent node not found: ${parentNode.id}`);
-                return;
-            }
-            
-            // Get center position of parent node
-            const parentRect = parentElement.getBoundingClientRect();
-            
-            if (parentRect.width === 0 || parentRect.height === 0) {
-                console.log(`Parent node has no size: ${parentNode.id}`);
-                return;
-            }
-            
-            const containerTop = containerRect.top;
-            const containerLeft = containerRect.left;
-            
-            const parentX = parentRect.left + parentRect.width / 2 - containerLeft;
-            const parentY = parentRect.bottom - containerTop;
-            
-            console.log(`Parent ${parentNode.id}: (${parentX.toFixed(1)}, ${parentY.toFixed(1)})`);
-            
-            // Find children of this parent
-            nextLevel.forEach(childNode => {
-                if (childNode.parentId === parentNode.id) {
-                    const childElement = document.querySelector(`.btree-node[data-node-id="${childNode.id}"]`);
-                    if (!childElement) {
-                        console.log(`Child node not found: ${childNode.id}`);
-                        return;
-                    }
-                    
-                    const childRect = childElement.getBoundingClientRect();
-                    const childX = childRect.left + childRect.width / 2 - containerLeft;
-                    const childY = childRect.top - containerTop;
-                    
-                    console.log(`  Child ${childNode.id}: (${childX.toFixed(1)}, ${childY.toFixed(1)})`);
-                    
-                    // Create line element
-                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', parentX);
-                    line.setAttribute('y1', parentY);
-                    line.setAttribute('x2', childX);
-                    line.setAttribute('y2', childY);
-                    line.setAttribute('stroke', '#38bdf8');
-                    line.setAttribute('stroke-width', '3');
-                    line.setAttribute('stroke-linecap', 'round');
-                    
-                    svg.appendChild(line);
-                    lineCount++;
-                    console.log(`  Drew line from (${parentX.toFixed(1)}, ${parentY.toFixed(1)}) to (${childX.toFixed(1)}, ${childY.toFixed(1)})`);
-                }
-            });
-        });
-    }
-    
-    console.log(`Total lines drawn: ${lineCount}`);
-}
-
-// Add book form handler
-document.getElementById('addBookForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const maSach = document.getElementById('addMaSach').value.trim();
-    const tenSach = document.getElementById('addTenSach').value.trim();
-    const tacGia = document.getElementById('addTacGia').value.trim();
-    
-    if (!maSach || !tenSach || !tacGia) {
-        showNotification('Vui lòng điền đầy đủ thông tin', 'error');
-        return;
-    }
-    
+// Thêm tham số searchPath
+async function loadAllData(affectedNodesList = null, newlyAddedBookId = null, searchPath = null) {
+    const timestamp = new Date().getTime();
     try {
-        const response = await fetch('/api/books', {
+        const [booksRes, treeRes] = await Promise.all([
+            fetch(`/api/books?t=${timestamp}`),
+            fetch(`/api/tree?t=${timestamp}`)
+        ]);
+        const books = await booksRes.json();
+        const treeRoot = await treeRes.json();
+        renderBookTable(books);
+        document.getElementById('bookCount').innerText = books.length;
+        
+        // Truyền searchPath xuống
+        drawTreeProfessional(treeRoot, affectedNodesList, newlyAddedBookId, searchPath);
+    } catch (error) { console.error('Lỗi tải dữ liệu:', error); }
+}
+
+// --- API ACTIONS ---
+
+async function addBook(bookData, newBookId) {
+    try {
+        const res = await fetch('/api/books', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                ma_sach: maSach,
-                ten_sach: tenSach,
-                tac_gia: tacGia
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookData)
         });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification('✓ ' + result.message, 'success');
-            document.getElementById('addBookForm').reset();
-            loadAllData();
-        } else {
-            showNotification('✗ ' + result.message, 'error');
-        }
-    } catch (error) {
-        console.error('Error adding book:', error);
-        showNotification('Lỗi khi thêm sách', 'error');
-    }
-});
+        const data = await res.json();
+        if (data.success) {
+            showNotification(data.message, 'success');
+            switchTab('tree');
+            await loadAllData(data.affected_nodes, newBookId);
+        } else { showNotification(data.message, 'error'); }
+    } catch (e) { showNotification('Lỗi server', 'error'); }
+}
 
-// Search book form handler
-document.getElementById('searchBookForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const maSach = document.getElementById('searchMaSach').value.trim();
-    
-    if (!maSach) {
-        showNotification('Vui lòng nhập mã sách', 'error');
-        return;
-    }
-    
+async function addRandomBook(btn) {
+    const originalContent = btn.innerHTML;
     try {
-        const response = await fetch(`/api/books/search/${maSach}`);
-        const result = await response.json();
-        
-        const searchResult = document.getElementById('searchResult');
-        
-        if (result.success) {
-            const book = result.book;
-            searchResult.innerHTML = `
-                <div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-lg shadow-lg mt-3 animate-fade-in">
-                    <h6 class="font-bold text-sm mb-2 flex items-center">
-                        <i class="bi bi-check-circle-fill mr-2"></i> Tìm thấy!
-                    </h6>
-                    <p class="text-sm mb-1"><strong>Mã:</strong> ${book.ma_sach}</p>
-                    <p class="text-sm mb-1"><strong>Tên:</strong> ${book.ten_sach}</p>
-                    <p class="text-sm mb-0"><strong>Tác giả:</strong> ${book.tac_gia}</p>
-                </div>
-            `;
-            showNotification('Tìm thấy sách', 'success');
-        } else {
-            searchResult.innerHTML = `
-                <div class="bg-gradient-to-r from-red-500 to-red-600 text-white p-4 rounded-lg shadow-lg mt-3 animate-fade-in">
-                    <h6 class="font-bold text-sm mb-2 flex items-center">
-                        <i class="bi bi-x-circle-fill mr-2"></i> Không tìm thấy
-                    </h6>
-                    <p class="text-sm mb-0">${result.message}</p>
-                </div>
-            `;
-            showNotification(result.message, 'error');
-        }
-    } catch (error) {
-        console.error('Error searching book:', error);
-        showNotification('Lỗi khi tìm kiếm', 'error');
-    }
-});
+        btn.innerHTML = `<span class="animate-spin inline-block mr-2">⟳</span> ...`; btn.disabled = true;
+        const res = await fetch('/api/books/random', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showNotification(data.message, 'success');
+            switchTab('tree');
+            const newBookId = data.book ? data.book.ma_sach : null;
+            await loadAllData(data.affected_nodes, newBookId);
+        } else { showNotification(data.message, 'warning'); }
+    } catch (e) { showNotification('Lỗi kết nối', 'error'); } 
+    finally { btn.innerHTML = originalContent; btn.disabled = false; }
+}
 
-// Delete book form handler
-document.getElementById('deleteBookForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const maSach = document.getElementById('deleteMaSach').value.trim();
-    
-    if (!maSach) {
-        showNotification('Vui lòng nhập mã sách', 'error');
-        return;
-    }
-    
-    if (!confirm(`Bạn có chắc muốn xóa sách có mã "${maSach}"?`)) {
-        return;
-    }
-    
-    await deleteBookById(maSach);
-    document.getElementById('deleteBookForm').reset();
-});
-
-// Delete book by ID
-async function deleteBookById(maSach) {
+async function searchBook(ma) {
     try {
-        const response = await fetch(`/api/books/${maSach}`, {
-            method: 'DELETE'
+        const res = await fetch(`/api/books/search/${ma}`);
+        const data = await res.json();
+        const resultDiv = document.getElementById('searchResult');
+        
+        // Luôn chuyển sang tab Tree để xem đường đi
+        switchTab('tree');
+
+        if (data.success) {
+            const b = data.book;
+            resultDiv.innerHTML = `<div class="p-3 bg-green-100 text-green-800 rounded"><b>${b.ma_sach}</b>: ${b.ten_sach}</div>`;
+            showNotification('Đã tìm thấy sách!', 'success');
+            
+            // Gọi loadAllData với tham số searchPath (tham số thứ 3)
+            // newlyAddedBookId (tham số thứ 2) chính là mã sách tìm thấy để nó tô xanh
+            await loadAllData(null, ma, data.search_path); 
+        } else {
+            resultDiv.innerHTML = `<div class="p-3 bg-red-100 text-red-800">Không tìm thấy ${ma}</div>`;
+            showNotification('Không tìm thấy', 'error');
+            
+            // Vẫn vẽ đường đi (màu xanh dương) để user biết đã tìm ở đâu, nhưng không tô xanh lá key nào
+            await loadAllData(null, null, data.search_path);
+        }
+    } catch (e) { showNotification('Lỗi tìm kiếm', 'error'); }
+}
+
+async function deleteBookById(ma) {
+    try {
+        const res = await fetch(`/api/books/${ma}`, { method: 'DELETE' });
+        const data = await res.json();
+        if(data.success) { showNotification(data.message, 'success'); await loadAllData(); }
+        else { showNotification(data.message, 'error'); }
+    } catch(e) { showNotification('Lỗi khi xóa', 'error'); }
+}
+
+async function resetTree() {
+    if (!confirm('Xóa toàn bộ dữ liệu?')) return;
+    try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) { showNotification(data.message, 'success'); await loadAllData(); }
+    } catch (e) { showNotification('Lỗi server', 'error'); }
+}
+
+async function updateDegree() {
+    const tVal = document.getElementById('degreeInput').value;
+    if(tVal < 2) return showNotification('t >= 2', 'error');
+    if(!confirm('Tái cấu trúc cây?')) return;
+    try {
+        const res = await fetch('/api/config/degree', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ t: tVal })
         });
+        const data = await res.json();
+        if(data.success) { showNotification(data.message, 'success'); await loadAllData(); }
+    } catch(e) { showNotification('Lỗi server', 'error'); }
+}
+
+// --- VISUALIZATION ENGINE ---
+
+function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId = null, searchPath = null) {
+    const container = document.getElementById('treeStructure'); container.innerHTML = '';
+    if (!root || !root.keys || root.keys.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-center py-20">Cây rỗng</div>'; return;
+    }
+
+    const treeData = calculateTreeLayout(root);
+    const canvas = document.createElement('div'); canvas.className = 'btree-canvas';
+    canvas.style.width = `${treeData.width + 100}px`; canvas.style.height = `${treeData.height + 50}px`;
+    const svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svgLayer.setAttribute('class', 'btree-svg-layer'); svgLayer.setAttribute('width', '100%'); svgLayer.setAttribute('height', '100%');
+    canvas.appendChild(svgLayer);
+
+    let targetElement = null;
+
+    treeData.nodes.forEach(node => {
+        const nodeEl = document.createElement('div'); nodeEl.className = 'btree-node-group';
+        nodeEl.style.left = `${node.x + 50}px`; nodeEl.style.top = `${node.y + 20}px`;
         
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification('✓ ' + result.message, 'success');
-            loadAllData();
-        } else {
-            showNotification('✗ ' + result.message, 'error');
+        // Chữ ký của node hiện tại
+        const currentNodeSignature = node.data.keys.map(k => k.ma_sach || k).join(',');
+
+        // 1. HIGHLIGHT ĐƯỜNG TÌM KIẾM (Màu Xanh Dương)
+        if (searchPath && Array.isArray(searchPath)) {
+            const isInPath = searchPath.some(sig => sig.join(',') === currentNodeSignature);
+            if (isInPath) {
+                nodeEl.classList.add('search-path-node');
+                // Target vào node cuối cùng của path (nơi dừng lại)
+                if (searchPath[searchPath.length-1].join(',') === currentNodeSignature) targetElement = nodeEl;
+            }
         }
-    } catch (error) {
-        console.error('Error deleting book:', error);
-        showNotification('Lỗi khi xóa sách', 'error');
+
+        // 2. HIGHLIGHT NODE BỊ ẢNH HƯỞNG (Màu Vàng)
+        if (affectedNodesList && Array.isArray(affectedNodesList)) {
+            const isAffected = affectedNodesList.some(sig => sig.join(',') === currentNodeSignature);
+            if (isAffected) {
+                nodeEl.classList.add('active-node');
+                if (!targetElement) targetElement = nodeEl;
+            }
+        }
+
+        node.data.keys.forEach(key => {
+            const keyEl = document.createElement('div'); keyEl.className = 'btree-key';
+            const currentMaSach = key.ma_sach || key;
+            keyEl.innerText = currentMaSach; 
+            keyEl.title = (key.ten_sach || '') + ' - ' + (key.tac_gia || '');
+
+            // 3. HIGHLIGHT KEY (Màu Xanh Lá - Cho thêm mới HOẶC Tìm thấy)
+            if (newlyAddedBookId && currentMaSach === newlyAddedBookId) {
+                keyEl.classList.add('newly-added-key');
+                targetElement = nodeEl;
+            }
+            nodeEl.appendChild(keyEl);
+        });
+        canvas.appendChild(nodeEl);
+
+        if (node.parent) { /* Vẽ đường nối (như cũ) */ 
+            const startX = node.parent.x + (node.parent.width/2) + 50; const startY = node.parent.y + node.parent.height + 20;
+            const endX = node.x + (node.width/2) + 50; const endY = node.y + 20;
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const controlY = (startY + endY) / 2;
+            const d = `M ${startX} ${startY} C ${startX} ${controlY}, ${endX} ${controlY}, ${endX} ${endY}`;
+            path.setAttribute('d', d); path.setAttribute('class', 'connection-line');
+            path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#6b7280'); path.setAttribute('stroke-width', '2');
+            svgLayer.appendChild(path);
+        }
+    });
+
+    const wrapper = document.createElement('div'); wrapper.className = 'btree-container';
+    wrapper.style.display = 'flex'; wrapper.style.justifyContent = 'center';
+    wrapper.appendChild(canvas); container.appendChild(wrapper);
+
+    if (targetElement) {
+        setTimeout(() => { targetElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }); }, 300);
+    }
+}
+
+// Các hàm Utils (renderBookTable, calculateTreeLayout...) giữ nguyên
+function renderBookTable(books) {
+    const tbody = document.getElementById('bookTableBody');
+    if (!books || books.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">Chưa có dữ liệu</td></tr>`; return;
+    }
+    tbody.innerHTML = books.map((book, idx) => `
+        <tr class="hover:bg-gray-100 transition border-b">
+            <td class="px-4 py-3 text-gray-500">${idx + 1}</td>
+            <td class="px-4 py-3 font-bold text-indigo-600">${book.ma_sach}</td>
+            <td class="px-4 py-3 font-medium text-gray-800">${book.ten_sach}</td>
+            <td class="px-4 py-3 text-gray-600">${book.tac_gia}</td>
+            <td class="px-4 py-3 text-center">
+               <button onclick="if(confirm('Xóa sách ${book.ma_sach}?')) deleteBookById('${book.ma_sach}')" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`).join('');
+}
+function calculateTreeLayout(root) {
+    let nodes = []; let maxDepth = 0;
+    function traverse(node, depth, parent) {
+        if (!node) return null;
+        maxDepth = Math.max(maxDepth, depth);
+        const processedNode = {
+            data: node, depth: depth, parent: parent, children: [],
+            width: (node.keys.length * 48) + 16, height: 56, x: 0, y: depth * CONFIG.LEVEL_HEIGHT
+        };
+        if (node.children) {
+            node.children.forEach(child => {
+                const childNode = traverse(child, depth + 1, processedNode);
+                if (childNode) processedNode.children.push(childNode);
+            });
+        }
+        nodes.push(processedNode); return processedNode;
+    }
+    const rootNode = traverse(root, 0, null);
+    let currentLeafX = 0; 
+    function assignX(node) {
+        if (node.children.length === 0) {
+            node.x = currentLeafX; currentLeafX += node.width + CONFIG.NODE_SPACING;
+        } else {
+            node.children.forEach(assignX);
+            const firstChild = node.children[0]; const lastChild = node.children[node.children.length - 1];
+            const centerPoint = (firstChild.x + lastChild.x + lastChild.width) / 2;
+            node.x = centerPoint - (node.width / 2);
+        }
+    }
+    assignX(rootNode);
+    return { nodes: nodes, width: currentLeafX, height: (maxDepth + 1) * CONFIG.LEVEL_HEIGHT };
+}
+function showNotification(msg, type='success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    const colorClass = type === 'success' ? 'bg-green-600' : (type === 'warning' ? 'bg-yellow-500' : 'bg-red-500');
+    toast.className = `${colorClass} text-white px-6 py-3 rounded-lg shadow-xl mb-3 flex items-center transform transition-all duration-300 translate-x-full`;
+    toast.innerHTML = `<i class="bi ${type==='success'?'bi-check-circle':'bi-exclamation-circle'} mr-2 text-xl"></i> ${msg}`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+    setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+}
+function switchTab(tab) {
+    if (tab === 'list') {
+        document.getElementById('listContent').classList.remove('hidden'); document.getElementById('treeContent').classList.add('hidden');
+        document.getElementById('listTab').classList.add('border-indigo-600', 'text-indigo-600'); document.getElementById('treeTab').classList.remove('border-indigo-600', 'text-indigo-600');
+    } else {
+        document.getElementById('treeContent').classList.remove('hidden'); document.getElementById('listContent').classList.add('hidden');
+        document.getElementById('treeTab').classList.add('border-indigo-600', 'text-indigo-600'); document.getElementById('listTab').classList.remove('border-indigo-600', 'text-indigo-600');
     }
 }
