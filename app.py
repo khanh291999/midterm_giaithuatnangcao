@@ -53,17 +53,25 @@ class BTree:
     def __init__(self, t=3):
         self.root = BTreeNode()
         self.t = t
-        # Theo dõi các node bị thay đổi để highlight
         self.affected_nodes = set()
 
     def get_affected_nodes_data(self):
-        """Trả về 'chữ ký' của các node bị ảnh hưởng để FE tô màu"""
         result = []
         for node in self.affected_nodes:
-            # Tạo chữ ký là danh sách mã sách trong node đó
             keys_sig = [k.ma_sach for k in node.keys]
             result.append(keys_sig)
         return result
+
+    def search(self, ma_sach, node=None):
+        if node is None: node = self.root
+        i = 0
+        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
+            i += 1
+        if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
+            return node.keys[i]
+        if node.leaf: return None
+        return self.search(ma_sach, node.children[i])
+
     def search_with_path(self, ma_sach):
         """Tìm kiếm và trả về (kết quả, đường_đi)"""
         path = [] # Danh sách lưu chữ ký các node đã đi qua
@@ -156,11 +164,19 @@ class BTree:
         self.affected_nodes.add(new_child)
 
     def delete(self, ma_sach):
+        self.affected_nodes = set() # Reset tracking
+        
+        if not self.search(ma_sach):
+            return False 
+        
         self._delete(self.root, ma_sach)
-        # Nếu root rỗng và có con, giảm chiều cao
+        
+        # Nếu root rỗng, giảm chiều cao
         if len(self.root.keys) == 0:
             if not self.root.leaf:
                 self.root = self.root.children[0]
+                self.affected_nodes.add(self.root) # Ghi nhận root mới
+        return True
 
     def _delete(self, node, ma_sach):
         t = self.t
@@ -168,11 +184,15 @@ class BTree:
         while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
             i += 1
         
+        # Ghi nhận node này đang bị xét duyệt/thay đổi
+        self.affected_nodes.add(node)
+
         if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
-            # Case 1: Tìm thấy tại node lá
+            # Case 1: Xóa ở lá
             if node.leaf:
                 node.keys.pop(i)
-            # Case 2: Tìm thấy tại node trong
+                self.affected_nodes.add(node)
+            # Case 2: Xóa ở node trong
             else:
                 if len(node.children[i].keys) >= t:
                     pred = self._get_predecessor(node, i)
@@ -184,20 +204,23 @@ class BTree:
                     self._delete(node.children[i+1], succ.ma_sach)
                 else:
                     self._merge(node, i)
+                    # Sau khi merge, node con ở vị trí i+1 đã bị xóa, con ở vị trí i chứa cả 2
                     self._delete(node.children[i], ma_sach)
         else:
-            # Case 3: Không tìm thấy, đi xuống con
-            if node.leaf:
-                return # Không tìm thấy sách
-            
+            # Case 3: Đi xuống con
+            if node.leaf: return
+
             flag = (i == len(node.keys))
             if len(node.children[i].keys) < t:
                 self._fill(node, i)
-            
+
+            # Fix lỗi Index Error tiềm ẩn sau khi merge
             if flag and i > len(node.keys):
                 self._delete(node.children[i-1], ma_sach)
             else:
-                self._delete(node.children[i], ma_sach)
+                # Kiểm tra lại index an toàn
+                child_idx = i if i < len(node.children) else len(node.children) - 1
+                self._delete(node.children[child_idx], ma_sach)
 
     # Các hàm bổ trợ cho Delete
     def _get_predecessor(self, node, i):
@@ -241,6 +264,8 @@ class BTree:
         if not child.leaf: child.children.extend(sibling.children)
         node.keys.pop(i)
         node.children.pop(i+1)
+
+        self.affected_nodes.add(child)
 
     def get_all_books(self):
         return self._inorder(self.root)
@@ -363,31 +388,25 @@ def search_book(ma):
         'search_path': path # Vẫn trả về lộ trình dù không tìm thấy (để biết đã tìm ở đâu)
     })
 # Example for Backend (Python/Flask)
-@app.route('/api/books/<string:book_id>', methods=['DELETE'])
-def delete_book(book_id):
+@app.route('/api/books/<ma>', methods=['DELETE'])
+def delete_book(ma):
     try:
-        # 1. Check if book exists
-        book = Book.query.get(book_id)
-        if not book:
-            # Return 404 instead of letting it crash later
-            return jsonify({"error": "Book not found"}), 404
-
-        # 2. Check for dependencies (Foreign Key Logic)
-        # Assuming 'borrows' is a relationship to the Borrow table
-        if book.borrows: 
-             return jsonify({"error": "Cannot delete book with existing borrow records."}), 400
-
-        # 3. Perform deletion
-        db.session.delete(book)
-        db.session.commit()
-        return jsonify({"message": "Deleted successfully"}), 200
-
+        if not btree.search(ma):
+            return jsonify({'success': False, 'message': 'Không tìm thấy sách'})
+        
+        btree.delete(ma)
+        save_data()
+        
+        # MỚI: Trả về danh sách node bị ảnh hưởng
+        return jsonify({
+            'success': True, 
+            'message': 'Đã xóa thành công',
+            'affected_nodes': btree.get_affected_nodes_data()
+        })
     except Exception as e:
-        # Log the specific error to the console for debugging
-        print(f"Server Error: {e}") 
-        db.session.rollback()
-        # Return 500 with a JSON message, not a crash
-        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+        print("LỖI XÓA SÁCH:", e)
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Lỗi hệ thống: {str(e)}'})
 
 @app.route('/api/config/degree', methods=['POST'])
 def update_degree():
