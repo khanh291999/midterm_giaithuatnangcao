@@ -1,16 +1,15 @@
-"""
-Flask Web App cho Hệ thống quản lý sách B-Tree
-"""
-
 from flask import Flask, render_template, request, jsonify
 import json
 import os
+import random
 
 app = Flask(__name__)
 
-# File để lưu dữ liệu
+# File cấu hình
 DATA_FILE = 'books_data.json'
+SAMPLE_FILE = 'sample_books.json'
 
+# --- 1. ĐỊNH NGHĨA CÁC CLASS ---
 
 class Book:
     """Lớp đại diện cho một cuốn sách"""
@@ -26,24 +25,16 @@ class Book:
             'tac_gia': self.tac_gia
         }
     
-    def __lt__(self, other):
-        return self.ma_sach < other.ma_sach
-    
-    def __le__(self, other):
-        return self.ma_sach <= other.ma_sach
-    
-    def __gt__(self, other):
-        return self.ma_sach > other.ma_sach
-    
-    def __ge__(self, other):
-        return self.ma_sach >= other.ma_sach
-    
-    def __eq__(self, other):
-        return self.ma_sach == other.ma_sach
+    # Các phép so sánh để B-Tree hoạt động
+    def __lt__(self, other): return self.ma_sach < (other.ma_sach if isinstance(other, Book) else other)
+    def __gt__(self, other): return self.ma_sach > (other.ma_sach if isinstance(other, Book) else other)
+    def __eq__(self, other): return self.ma_sach == (other.ma_sach if isinstance(other, Book) else other)
+    def __le__(self, other): return self.ma_sach <= (other.ma_sach if isinstance(other, Book) else other)
+    def __ge__(self, other): return self.ma_sach >= (other.ma_sach if isinstance(other, Book) else other)
 
 
 class BTreeNode:
-    """Lớp đại diện cho một node trong B-Tree"""
+    """Lớp Node của B-Tree"""
     def __init__(self, leaf=True):
         self.keys = []
         self.children = []
@@ -51,37 +42,55 @@ class BTreeNode:
     
     def to_dict(self):
         return {
-            'keys': [book.ma_sach for book in self.keys],
+            'keys': [k.to_dict() for k in self.keys], # Serialize book objects
             'leaf': self.leaf,
             'children': [child.to_dict() for child in self.children]
         }
 
 
 class BTree:
-    """Lớp B-Tree để quản lý sách"""
+    """Lớp B-Tree quản lý sách"""
     def __init__(self, t=3):
         self.root = BTreeNode()
         self.t = t
-    
-    def search(self, ma_sach, node=None):
-        """Tìm kiếm sách theo mã"""
-        if node is None:
-            node = self.root
+        # Theo dõi các node bị thay đổi để highlight
+        self.affected_nodes = set()
+
+    def get_affected_nodes_data(self):
+        """Trả về 'chữ ký' của các node bị ảnh hưởng để FE tô màu"""
+        result = []
+        for node in self.affected_nodes:
+            # Tạo chữ ký là danh sách mã sách trong node đó
+            keys_sig = [k.ma_sach for k in node.keys]
+            result.append(keys_sig)
+        return result
+    def search_with_path(self, ma_sach):
+        """Tìm kiếm và trả về (kết quả, đường_đi)"""
+        path = [] # Danh sách lưu chữ ký các node đã đi qua
+        node = self.root
         
-        i = 0
-        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
-            i += 1
-        
-        if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
-            return node.keys[i]
-        
-        if node.leaf:
-            return None
-        
-        return self.search(ma_sach, node.children[i])
-    
+        while True:
+            # 1. Ghi lại dấu vết node hiện tại
+            node_sig = [k.ma_sach for k in node.keys]
+            path.append(node_sig)
+            
+            i = 0
+            while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
+                i += 1
+            
+            # Trường hợp 1: Tìm thấy
+            if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
+                return node.keys[i], path
+            
+            # Trường hợp 2: Không thấy và đã ở lá
+            if node.leaf:
+                return None, path
+            
+            # Trường hợp 3: Đi xuống con
+            node = node.children[i]
     def insert(self, book):
-        """Thêm sách vào B-Tree"""
+        """Thêm sách mới"""
+        self.affected_nodes = set() # Reset tracking
         root = self.root
         
         if len(root.keys) >= (2 * self.t - 1):
@@ -89,299 +98,333 @@ class BTree:
             new_root.children.append(self.root)
             self._split_child(new_root, 0)
             self.root = new_root
-        
-        self._insert_non_full(self.root, book)
-    
+            self._insert_non_full(new_root, book)
+            self.affected_nodes.add(new_root)
+        else:
+            self._insert_non_full(root, book)
+
     def _insert_non_full(self, node, book):
-        """Chèn vào node chưa đầy"""
         i = len(node.keys) - 1
         
         if node.leaf:
             node.keys.append(None)
-            while i >= 0 and book < node.keys[i]:
+            while i >= 0 and book.ma_sach < node.keys[i].ma_sach:
                 node.keys[i + 1] = node.keys[i]
                 i -= 1
             node.keys[i + 1] = book
+            self.affected_nodes.add(node) # Ghi nhận thay đổi
         else:
-            while i >= 0 and book < node.keys[i]:
+            while i >= 0 and book.ma_sach < node.keys[i].ma_sach:
                 i -= 1
             i += 1
             
             if len(node.children[i].keys) >= (2 * self.t - 1):
                 self._split_child(node, i)
-                if book > node.keys[i]:
+                if book.ma_sach > node.keys[i].ma_sach:
                     i += 1
             
             self._insert_non_full(node.children[i], book)
-    
+
     def _split_child(self, parent, index):
-        """Chia child tại vị trí index của parent"""
         t = self.t
         full_child = parent.children[index]
         new_child = BTreeNode(leaf=full_child.leaf)
         
         mid_index = t - 1
         
+        # 1. Tách khóa sang con mới
         new_child.keys = full_child.keys[mid_index + 1:]
+        
+        # 2. Lấy khóa trung vị
+        median_key = full_child.keys[mid_index]
+        
+        # 3. Cắt con cũ
         full_child.keys = full_child.keys[:mid_index]
         
+        # 4. Di chuyển con cái (nếu có)
         if not full_child.leaf:
             new_child.children = full_child.children[mid_index + 1:]
             full_child.children = full_child.children[:mid_index + 1]
         
-        parent.keys.insert(index, full_child.keys[mid_index] if mid_index < len(full_child.keys) else new_child.keys[0])
-        
-        if mid_index < len(full_child.keys):
-            full_child.keys.pop(mid_index)
-        
+        # 5. Đẩy trung vị lên cha
+        parent.keys.insert(index, median_key)
         parent.children.insert(index + 1, new_child)
-    
+
+        # Ghi nhận các node bị ảnh hưởng
+        self.affected_nodes.add(parent)
+        self.affected_nodes.add(full_child)
+        self.affected_nodes.add(new_child)
+
     def delete(self, ma_sach):
-        """Xóa sách theo mã"""
         self._delete(self.root, ma_sach)
-        
+        # Nếu root rỗng và có con, giảm chiều cao
         if len(self.root.keys) == 0:
-            if not self.root.leaf and len(self.root.children) > 0:
+            if not self.root.leaf:
                 self.root = self.root.children[0]
-    
+
     def _delete(self, node, ma_sach):
-        """Xóa sách khỏi node"""
+        t = self.t
         i = 0
         while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
             i += 1
         
         if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
+            # Case 1: Tìm thấy tại node lá
             if node.leaf:
                 node.keys.pop(i)
+            # Case 2: Tìm thấy tại node trong
             else:
-                self._delete_internal_node(node, ma_sach, i)
-        elif not node.leaf:
-            is_in_subtree = (i == len(node.keys))
+                if len(node.children[i].keys) >= t:
+                    pred = self._get_predecessor(node, i)
+                    node.keys[i] = pred
+                    self._delete(node.children[i], pred.ma_sach)
+                elif len(node.children[i+1].keys) >= t:
+                    succ = self._get_successor(node, i)
+                    node.keys[i] = succ
+                    self._delete(node.children[i+1], succ.ma_sach)
+                else:
+                    self._merge(node, i)
+                    self._delete(node.children[i], ma_sach)
+        else:
+            # Case 3: Không tìm thấy, đi xuống con
+            if node.leaf:
+                return # Không tìm thấy sách
             
-            if len(node.children[i].keys) < self.t:
+            flag = (i == len(node.keys))
+            if len(node.children[i].keys) < t:
                 self._fill(node, i)
             
-            if is_in_subtree and i > len(node.keys):
-                self._delete(node.children[i - 1], ma_sach)
+            if flag and i > len(node.keys):
+                self._delete(node.children[i-1], ma_sach)
             else:
                 self._delete(node.children[i], ma_sach)
-    
-    def _delete_internal_node(self, node, ma_sach, i):
-        """Xóa key từ node nội bộ"""
-        if len(node.children[i].keys) >= self.t:
-            predecessor = self._get_predecessor(node, i)
-            node.keys[i] = predecessor
-            self._delete(node.children[i], predecessor.ma_sach)
-        elif len(node.children[i + 1].keys) >= self.t:
-            successor = self._get_successor(node, i)
-            node.keys[i] = successor
-            self._delete(node.children[i + 1], successor.ma_sach)
-        else:
-            self._merge(node, i)
-            self._delete(node.children[i], ma_sach)
-    
+
+    # Các hàm bổ trợ cho Delete
     def _get_predecessor(self, node, i):
-        """Lấy predecessor của key tại vị trí i"""
-        current = node.children[i]
-        while not current.leaf:
-            current = current.children[-1]
-        return current.keys[-1]
-    
+        cur = node.children[i]
+        while not cur.leaf: cur = cur.children[-1]
+        return cur.keys[-1]
+
     def _get_successor(self, node, i):
-        """Lấy successor của key tại vị trí i"""
-        current = node.children[i + 1]
-        while not current.leaf:
-            current = current.children[0]
-        return current.keys[0]
-    
+        cur = node.children[i+1]
+        while not cur.leaf: cur = cur.children[0]
+        return cur.keys[0]
+
     def _fill(self, node, i):
-        """Đảm bảo child tại vị trí i có đủ keys"""
-        if i != 0 and len(node.children[i - 1].keys) >= self.t:
+        if i != 0 and len(node.children[i-1].keys) >= self.t:
             self._borrow_from_prev(node, i)
-        elif i != len(node.children) - 1 and len(node.children[i + 1].keys) >= self.t:
+        elif i != len(node.children)-1 and len(node.children[i+1].keys) >= self.t:
             self._borrow_from_next(node, i)
         else:
-            if i != len(node.children) - 1:
-                self._merge(node, i)
-            else:
-                self._merge(node, i - 1)
-    
-    def _borrow_from_prev(self, node, child_index):
-        """Mượn key từ sibling trước"""
-        child = node.children[child_index]
-        sibling = node.children[child_index - 1]
-        
-        child.keys.insert(0, node.keys[child_index - 1])
-        node.keys[child_index - 1] = sibling.keys.pop()
-        
-        if not child.leaf:
-            child.children.insert(0, sibling.children.pop())
-    
-    def _borrow_from_next(self, node, child_index):
-        """Mượn key từ sibling sau"""
-        child = node.children[child_index]
-        sibling = node.children[child_index + 1]
-        
-        child.keys.append(node.keys[child_index])
-        node.keys[child_index] = sibling.keys.pop(0)
-        
-        if not child.leaf:
-            child.children.append(sibling.children.pop(0))
-    
-    def _merge(self, node, i):
-        """Merge child với sibling"""
+            if i != len(node.children)-1: self._merge(node, i)
+            else: self._merge(node, i-1)
+
+    def _borrow_from_prev(self, node, i):
         child = node.children[i]
-        sibling = node.children[i + 1]
-        
+        sibling = node.children[i-1]
+        child.keys.insert(0, node.keys[i-1])
+        if not child.leaf: child.children.insert(0, sibling.children.pop())
+        node.keys[i-1] = sibling.keys.pop()
+
+    def _borrow_from_next(self, node, i):
+        child = node.children[i]
+        sibling = node.children[i+1]
+        child.keys.append(node.keys[i])
+        if not child.leaf: child.children.append(sibling.children.pop(0))
+        node.keys[i] = sibling.keys.pop(0)
+
+    def _merge(self, node, i):
+        child = node.children[i]
+        sibling = node.children[i+1]
         child.keys.append(node.keys[i])
         child.keys.extend(sibling.keys)
-        
-        if not child.leaf:
-            child.children.extend(sibling.children)
-        
+        if not child.leaf: child.children.extend(sibling.children)
         node.keys.pop(i)
-        node.children.pop(i + 1)
-    
+        node.children.pop(i+1)
+
     def get_all_books(self):
-        """Lấy tất cả sách theo thứ tự"""
-        return self._inorder_traversal(self.root)
-    
-    def _inorder_traversal(self, node):
-        """Duyệt cây theo thứ tự"""
-        result = []
-        if node is None:
-            return result
-        
-        if node.leaf:
-            return node.keys
-        
+        return self._inorder(self.root)
+
+    def _inorder(self, node):
+        res = []
+        if not node: return res
+        i = 0
         for i in range(len(node.keys)):
-            result.extend(self._inorder_traversal(node.children[i]))
-            result.append(node.keys[i])
-        
-        if len(node.children) > len(node.keys):
-            result.extend(self._inorder_traversal(node.children[-1]))
-        
-        return result
+            if not node.leaf: res.extend(self._inorder(node.children[i]))
+            res.append(node.keys[i])
+        if not node.leaf: res.extend(self._inorder(node.children[i+1]))
+        return res
     
     def get_tree_structure(self):
-        """Lấy cấu trúc cây để hiển thị"""
-        if self.root is None:
-            return None
         return self.root.to_dict()
 
-
-# Khởi tạo B-Tree toàn cục
+# --- 2. KHỞI TẠO GLOBAL ---
 btree = BTree(t=3)
 
-# Hàm lưu dữ liệu vào file
+# --- 3. HÀM UTILS ---
 def save_data():
-    """Lưu tất cả sách vào file JSON"""
     books = btree.get_all_books()
-    data = [book.to_dict() for book in books]
+    data = [b.to_dict() for b in books]
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# Hàm load dữ liệu từ file
 def load_data():
-    """Load sách từ file JSON"""
+    global btree
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+                btree = BTree(t=btree.t) # Reset tree
                 for item in data:
                     book = Book(item['ma_sach'], item['ten_sach'], item['tac_gia'])
                     btree.insert(book)
-                return True
+            return True
         except:
             return False
     return False
 
-# Load dữ liệu mẫu
-def load_sample_data():
-    books_data = [
-        ("B005", "Lập trình Python", "Nguyễn Văn A"),
-        ("B002", "Cấu trúc dữ liệu", "Trần Thị B"),
-        ("B008", "Thuật toán nâng cao", "Lê Văn C"),
-        ("B001", "Trí tuệ nhân tạo", "Phạm Thị D"),
-        ("B010", "Machine Learning", "Hoàng Văn E"),
-        ("B003", "Deep Learning", "Vũ Thị F"),
-        ("B007", "Data Science", "Đỗ Văn G"),
-        ("B004", "Web Development", "Ngô Thị H"),
-        ("B009", "Mobile Apps", "Bùi Văn I"),
-        ("B006", "Database Systems", "Đinh Thị K"),
-    ]
-    
-    for ma, ten, tac_gia in books_data:
-        book = Book(ma, ten, tac_gia)
-        btree.insert(book)
-    save_data()
+# Load data on startup
+load_data()
 
-# Thử load dữ liệu từ file, nếu không có thì load dữ liệu mẫu
-if not load_data():
-    load_sample_data()
-
-
-# Routes
+# --- 4. ROUTES ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
-
 @app.route('/api/books', methods=['GET'])
 def get_books():
-    """Lấy danh sách tất cả sách"""
     books = btree.get_all_books()
-    return jsonify([book.to_dict() for book in books])
-
-
-@app.route('/api/books/search/<ma_sach>', methods=['GET'])
-def search_book(ma_sach):
-    """Tìm sách theo mã"""
-    book = btree.search(ma_sach)
-    if book:
-        return jsonify({'success': True, 'book': book.to_dict()})
-    return jsonify({'success': False, 'message': 'Không tìm thấy sách'})
-
-
-@app.route('/api/books', methods=['POST'])
-def add_book():
-    """Thêm sách mới"""
-    data = request.json
-    ma_sach = data.get('ma_sach')
-    ten_sach = data.get('ten_sach')
-    tac_gia = data.get('tac_gia')
-    
-    if not all([ma_sach, ten_sach, tac_gia]):
-        return jsonify({'success': False, 'message': 'Thiếu thông tin sách'})
-    
-    if btree.search(ma_sach):
-        return jsonify({'success': False, 'message': 'Mã sách đã tồn tại'})
-    
-    book = Book(ma_sach, ten_sach, tac_gia)
-    btree.insert(book)
-    save_data()  # Lưu vào file
-    
-    return jsonify({'success': True, 'message': 'Thêm sách thành công'})
-
-
-@app.route('/api/books/<ma_sach>', methods=['DELETE'])
-def delete_book(ma_sach):
-    """Xóa sách"""
-    book = btree.search(ma_sach)
-    if not book:
-        return jsonify({'success': False, 'message': 'Không tìm thấy sách'})
-    
-    btree.delete(ma_sach)
-    save_data()  # Lưu vào file
-    return jsonify({'success': True, 'message': 'Xóa sách thành công'})
-
+    return jsonify([b.to_dict() for b in books])
 
 @app.route('/api/tree', methods=['GET'])
 def get_tree():
-    """Lấy cấu trúc cây"""
     return jsonify(btree.get_tree_structure())
 
+@app.route('/api/books', methods=['POST'])
+def add_book():
+    data = request.json
+    ma = data.get('ma_sach')
+    if btree.search(ma):
+        return jsonify({'success': False, 'message': 'Mã sách đã tồn tại'})
+    
+    book = Book(ma, data.get('ten_sach'), data.get('tac_gia'))
+    btree.insert(book)
+    save_data()
+    
+    return jsonify({
+        'success': True, 
+        'message': 'Thêm thành công',
+        'affected_nodes': btree.get_affected_nodes_data()
+    })
+
+@app.route('/api/books/random', methods=['POST'])
+def add_random_book():
+    if not os.path.exists(SAMPLE_FILE):
+        return jsonify({'success': False, 'message': 'Chưa có file sample_books.json'})
+    
+    try:
+        with open(SAMPLE_FILE, 'r', encoding='utf-8') as f:
+            samples = json.load(f)
+        
+        current_codes = {b.ma_sach for b in btree.get_all_books()}
+        available = [s for s in samples if s['ma_sach'] not in current_codes]
+        
+        if not available:
+            return jsonify({'success': False, 'message': 'Hết sách mẫu!'})
+        
+        chosen = random.choice(available)
+        book = Book(chosen['ma_sach'], chosen['ten_sach'], chosen['tac_gia'])
+        btree.insert(book)
+        save_data()
+        
+        return jsonify({
+            'success': True,
+            'message': f"Đã thêm: {book.ten_sach}",
+            'book': book.to_dict(),
+            'affected_nodes': btree.get_affected_nodes_data()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/books/search/<ma>', methods=['GET'])
+def search_book(ma):
+    # Gọi hàm mới search_with_path
+    book, path = btree.search_with_path(ma)
+    
+    if book: 
+        return jsonify({
+            'success': True, 
+            'book': book.to_dict(),
+            'search_path': path # Trả về lộ trình
+        })
+    
+    return jsonify({
+        'success': False, 
+        'search_path': path # Vẫn trả về lộ trình dù không tìm thấy (để biết đã tìm ở đâu)
+    })
+# Example for Backend (Python/Flask)
+@app.route('/api/books/<string:book_id>', methods=['DELETE'])
+def delete_book(book_id):
+    try:
+        # 1. Check if book exists
+        book = Book.query.get(book_id)
+        if not book:
+            # Return 404 instead of letting it crash later
+            return jsonify({"error": "Book not found"}), 404
+
+        # 2. Check for dependencies (Foreign Key Logic)
+        # Assuming 'borrows' is a relationship to the Borrow table
+        if book.borrows: 
+             return jsonify({"error": "Cannot delete book with existing borrow records."}), 400
+
+        # 3. Perform deletion
+        db.session.delete(book)
+        db.session.commit()
+        return jsonify({"message": "Deleted successfully"}), 200
+
+    except Exception as e:
+        # Log the specific error to the console for debugging
+        print(f"Server Error: {e}") 
+        db.session.rollback()
+        # Return 500 with a JSON message, not a crash
+        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+
+@app.route('/api/config/degree', methods=['POST'])
+def update_degree():
+    global btree
+    try:
+        data = request.json
+        new_t = int(data.get('t', 3))
+        if new_t < 2: return jsonify({'success': False, 'message': 't >= 2'})
+        
+        # Re-index
+        current_books = btree.get_all_books()
+        btree = BTree(t=new_t)
+        for b in current_books: btree.insert(b)
+        save_data()
+        
+        return jsonify({'success': True, 'message': f'Đã đổi sang t={new_t}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/reset', methods=['POST'])
+def reset_tree():
+    """Xóa toàn bộ dữ liệu và khởi tạo lại cây rỗng"""
+    global btree
+    try:
+        # Giữ nguyên bậc t hiện tại, chỉ reset dữ liệu
+        current_t = btree.t
+        btree = BTree(t=current_t)
+        
+        # Lưu đè danh sách rỗng vào file
+        save_data()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Đã xóa toàn bộ dữ liệu. Cây đã được reset.'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, port=5000)

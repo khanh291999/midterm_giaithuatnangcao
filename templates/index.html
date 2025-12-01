@@ -111,24 +111,199 @@
         .btree-level {
             animation: fadeIn 0.5s ease-out;
         }
+        /* Thêm vào thẻ <style> trong index.html */
+        .btree-container {
+            overflow: auto; /* Cho phép cuộn nếu cây quá to */
+            position: relative;
+            background: #1e1e2e; /* Màu nền tối để nổi bật cây */
+            border-radius: 12px;
+            min-height: 500px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .btree-canvas {
+            position: relative;
+            margin: 0 auto;
+            transform-origin: top center;
+            transition: transform 0.3s ease;
+        }
+
+        .btree-node-group {
+            position: absolute;
+            display: flex;
+            gap: 4px;
+            background: #313244;
+            padding: 8px;
+            border-radius: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 2px solid #45475a;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .btree-node-group:hover {
+            transform: scale(1.05);
+            border-color: #89b4fa;
+            z-index: 20;
+        }
+
+        .btree-key {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #89b4fa, #b4befe);
+            color: #1e1e2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 11px; /* Chữ nhỏ lại để vừa mã */
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.4);
+            cursor: default;
+        }
+
+        /* Đường nối SVG nằm dưới các node */
+        .btree-svg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; /* Nằm dưới node */
+            pointer-events: none;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: #585b70;
+            stroke-width: 2px;
+            opacity: 0.6;
+        }
+                /* Hiệu ứng node mới được thêm vào */
+        @keyframes pulse-green {
+            0% {
+                box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 0 15px rgba(74, 222, 128, 0);
+                transform: scale(1.3);
+                background-color: #22c55e; /* Màu xanh lá sáng */
+                color: white;
+                border-color: white;
+                z-index: 100;
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+                transform: scale(1);
+            }
+        }
+
+        .btree-key.new-item {
+            animation: pulse-green 2s ease-in-out infinite; /* Chớp tắt liên tục */
+            border: 2px solid #bef264;
+            font-weight: bold;
+        }
+
+        /* Hiệu ứng khi tìm thấy (màu vàng) */
+        @keyframes pulse-yellow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); }
+            50% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); background: #eab308; color: white; }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+        }
+
+        .btree-key.found-item {
+            animation: pulse-yellow 1.5s ease-in-out infinite;
+            z-index: 50;
+        }
+                /* Hiệu ứng cho NODE (Cái hộp lớn) */
+        @keyframes node-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); border-color: #6366f1; }
+            50% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); border-color: #818cf8; transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); border-color: #6366f1; transform: scale(1); }
+        }
+
+        /* Class này sẽ được JS thêm vào node chứa sách vừa thêm/tìm */
+        .btree-node-group.active-node {
+            animation: node-pulse 1.5s ease-in-out infinite;
+            background: #3730a3 !important; /* Màu nền tím đậm nổi bật */
+            border: 2px solid #818cf8 !important; /* Viền sáng */
+            z-index: 50;
+        }
+
+        /* Giữ nguyên hiệu ứng cho Key (cục tròn) nếu muốn */
+        .btree-key.new-item {
+            background: #22c55e !important;
+            color: white;
+            box-shadow: 0 0 10px #22c55e;
+        }
+        /* Hiệu ứng pulse màu xanh lá cho node vừa thêm */
+    @keyframes green-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); border-color: #22c55e; }
+        50% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); border-color: #4ade80; transform: scale(1.05); background: #14532d !important; }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); border-color: #22c55e; transform: scale(1); }
+    }
+    .newly-added-node {
+        animation: green-pulse 2s ease-in-out infinite;
+        border: 3px solid #22c55e !important; /* Viền xanh lá đậm */
+        z-index: 100;
+    }
+    .newly-added-node .btree-key {
+        background: #22c55e !important; /* Nền key xanh lá */
+        color: white !important;
+    }
+    
+    /* Hiệu ứng nhẹ hơn cho các node bị ảnh hưởng khác (màu vàng/cam) */
+    @keyframes affected-pulse {
+        0% { border-color: #f59e0b; } 50% { border-color: #fbbf24; transform: scale(1.02); } 100% { border-color: #f59e0b; }
+    }
+    .active-node:not(.newly-added-node) {
+        animation: affected-pulse 1.5s infinite;
+        border: 2px solid #f59e0b !important;
+    }
+
     </style>
 </head>
 <body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 min-h-screen">
     
     <!-- Navbar -->
-    <nav class="bg-indigo-600 shadow-lg">
-        <div class="container mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <i class="bi bi-book-fill text-white text-2xl"></i>
-                    <h1 class="text-white text-xl font-bold">Hệ Thống Quản Lý Sách Thư Viện</h1>
+<nav class="bg-indigo-600 shadow-lg sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-lg shadow-md">
+                    <i class="bi bi-book-fill text-indigo-600 text-xl"></i>
                 </div>
-                <span class="bg-white text-indigo-600 px-4 py-2 rounded-full font-semibold text-sm">
-                    B-Tree (t=3)
+                <h1 class="text-white text-xl font-bold tracking-wide">Hệ Thống Quản Lý Sách</h1>
+            </div>
+
+            <div class="flex items-center bg-indigo-700 rounded-lg p-1.5 shadow-inner border border-indigo-500">
+                <span class="text-indigo-200 text-sm font-medium px-3">
+                    <i class="bi bi-gear-fill mr-1"></i> Cấu hình B-Tree:
                 </span>
+                
+                <div class="flex items-center space-x-2 bg-white rounded px-2 py-1">
+                    <label for="degreeInput" class="text-gray-600 text-sm font-bold">t =</label>
+                    <input type="number" id="degreeInput" value="3" min="2" max="10" 
+                           class="w-12 text-center text-indigo-700 font-bold focus:outline-none border-b-2 border-transparent focus:border-indigo-500 transition-colors"
+                           title="Nhập bậc tối thiểu (min degree)">
+                </div>
+                
+                <button onclick="updateDegree()" 
+                        class="ml-2 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded transition-all shadow hover:shadow-md active:scale-95">
+                    Áp dụng
+                </button>
+                
+                <button onclick="resetData()" 
+                        class="ml-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded transition-all shadow hover:shadow-md active:scale-95"
+                        title="Xóa hết dữ liệu và tạo cây mới">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
             </div>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <div class="container mx-auto px-4 py-6">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -161,6 +336,10 @@
                         <button type="submit" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transform transition hover:scale-105 shadow-lg">
                             <i class="bi bi-plus-lg mr-2"></i>Thêm Sách
                         </button>
+                        <button type="button" onclick="addRandomBook(this)" 
+                            class="w-full bg-white border-2 border-dashed border-indigo-400 text-indigo-600 py-2 px-4 rounded-lg font-semibold hover:bg-indigo-50 hover:border-indigo-600 transition-all active:scale-95">
+                        <i class="bi bi-shuffle mr-2"></i>Thêm Ngẫu Nhiên (Từ Sample)
+                    </button>
                     </form>
                 </div>
 
@@ -204,6 +383,10 @@
                 <!-- Refresh Button -->
                 <button onclick="loadAllData()" class="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-yellow-600 hover:to-orange-600 transform transition hover:scale-105 shadow-xl">
                     <i class="bi bi-arrow-clockwise mr-2"></i>Làm Mới Dữ Liệu
+                </button>
+                <button onclick="resetTree()" 
+                        class="w-full mt-3 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transform transition hover:scale-105 shadow-xl flex items-center justify-center">
+                    <i class="bi bi-trash3-fill mr-2"></i> Reset Hệ Thống
                 </button>
             </div>
 
