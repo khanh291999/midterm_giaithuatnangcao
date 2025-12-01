@@ -156,9 +156,23 @@ async function deleteBookById(ma) {
     try {
         const res = await fetch(`/api/books/${ma}`, { method: 'DELETE' });
         const data = await res.json();
-        if(data.success) { showNotification(data.message, 'success'); await loadAllData(); }
-        else { showNotification(data.message, 'error'); }
-    } catch(e) { showNotification('Lỗi khi xóa', 'error'); }
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            
+            // Chuyển sang tab cây để xem hiệu ứng
+            switchTab('tree');
+            
+            // Gọi loadAllData với danh sách node bị ảnh hưởng (tham số đầu tiên)
+            // Không truyền newBookId (null) vì đây là xóa
+            await loadAllData(data.affected_nodes, null);
+            
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (e) {
+        showNotification('Lỗi khi xóa', 'error');
+    }
 }
 
 async function resetTree() {
