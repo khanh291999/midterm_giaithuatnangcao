@@ -285,22 +285,35 @@ class BTree:
 
 # --- 2. KHỞI TẠO GLOBAL ---
 btree = BTree(t=3)
+current_t = 3  # Biến lưu giá trị t hiện tại
 
 # --- 3. HÀM UTILS ---
 def save_data():
     books = btree.get_all_books()
-    data = [b.to_dict() for b in books]
+    data = {
+        't': current_t,
+        'books': [b.to_dict() for b in books]
+    }
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_data():
-    global btree
+    global btree, current_t
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                btree = BTree(t=btree.t) # Reset tree
-                for item in data:
+                
+                # Kiểm tra format mới (có t) hay format cũ (chỉ có list)
+                if isinstance(data, dict) and 't' in data:
+                    current_t = data['t']
+                    books_data = data['books']
+                else:
+                    # Format cũ - giữ nguyên current_t = 3
+                    books_data = data
+                
+                btree = BTree(t=current_t)
+                for item in books_data:
                     book = Book(item['ma_sach'], item['ten_sach'], item['tac_gia'])
                     btree.insert(book)
             return True
@@ -410,11 +423,14 @@ def delete_book(ma):
 
 @app.route('/api/config/degree', methods=['POST'])
 def update_degree():
-    global btree
+    global btree, current_t
     try:
         data = request.json
         new_t = int(data.get('t', 3))
         if new_t < 2: return jsonify({'success': False, 'message': 't >= 2'})
+        
+        # Cập nhật giá trị current_t
+        current_t = new_t
         
         # Re-index
         current_books = btree.get_all_books()
@@ -429,10 +445,9 @@ def update_degree():
 @app.route('/api/reset', methods=['POST'])
 def reset_tree():
     """Xóa toàn bộ dữ liệu và khởi tạo lại cây rỗng"""
-    global btree
+    global btree, current_t
     try:
-        # Giữ nguyên bậc t hiện tại, chỉ reset dữ liệu
-        current_t = btree.t
+        # Sử dụng current_t thay vì btree.t
         btree = BTree(t=current_t)
         
         # Lưu đè danh sách rỗng vào file
