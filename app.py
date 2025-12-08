@@ -49,10 +49,12 @@ class BTreeNode:
 
 
 class BTree:
-    """Lớp B-Tree quản lý sách"""
-    def __init__(self, t=3):
+    """Lớp B-Tree quản lý sách theo Order m"""
+    def __init__(self, m=4):
         self.root = BTreeNode()
-        self.t = t
+        self.m = m  # Order của B-Tree
+        self.max_keys = m - 1  # Số key tối đa
+        self.min_keys = (m + 1) // 2 - 1  # Số key tối thiểu = ceil(m/2) - 1
         self.affected_nodes = set()
 
     def get_affected_nodes_data(self):
@@ -101,7 +103,7 @@ class BTree:
         self.affected_nodes = set() # Reset tracking
         root = self.root
         
-        if len(root.keys) >= (2 * self.t - 1):
+        if len(root.keys) >= self.max_keys:
             new_root = BTreeNode(leaf=False)
             new_root.children.append(self.root)
             self._split_child(new_root, 0)
@@ -126,7 +128,7 @@ class BTree:
                 i -= 1
             i += 1
             
-            if len(node.children[i].keys) >= (2 * self.t - 1):
+            if len(node.children[i].keys) >= self.max_keys:
                 self._split_child(node, i)
                 if book.ma_sach > node.keys[i].ma_sach:
                     i += 1
@@ -134,31 +136,57 @@ class BTree:
             self._insert_non_full(node.children[i], book)
 
     def _split_child(self, parent, index):
-        t = self.t
+        """
+        Split child theo thuật toán B-Tree chuẩn
+        Với Order m, node đầy có (m-1) keys
+        Sau split: Left có ceil(m/2)-1 keys, Right có floor(m/2)-1 keys
+        """
         full_child = parent.children[index]
         new_child = BTreeNode(leaf=full_child.leaf)
         
-        mid_index = t - 1
+        # CÔNG THỨC CHUẨN cho B-Tree Order m:
+        # mid_index = ceil(m/2) - 1 = (m + 1) // 2 - 1
+        # Hoặc có thể dùng: mid_index = m // 2
+        # 
+        # m=3: mid = 3//2 = 1
+        #      Node [A,B] → Left=[A], Median=B, Right=[]
+        #      Left có 1 key (>= min=1), Right có 0 key (< min=1) → SAI!
+        # 
+        # m=3: mid = (3+1)//2 - 1 = 1 → Vẫn SAI
+        # 
+        # THỰC RA với m=3 không thể split cân bằng!
+        # Phải chấp nhận: Left có 0 hoặc Right có 0
+        # Nhưng trong B-Tree chuẩn, khi split:
+        # - Left giữ lại floor((m-1)/2) keys
+        # - Right nhận ceil((m-1)/2) - 1 keys  
+        # - Median: 1 key
+        #
+        # m=3: floor(2/2)=1, ceil(2/2)-1=0 → Left=[A], Median=B, Right=[]
+        # Nhưng điều này SAI vì Right rỗng!
+        #
+        # => ĐỔI CHIẾN LƯỢC: Dùng công thức của textbook Knuth
+        # mid_index = (m-1) // 2 (chia đều, left nhận ít hơn)
+        mid_index = self.max_keys // 2
         
-        # 1. Tách khóa sang con mới
-        new_child.keys = full_child.keys[mid_index + 1:]
-        
-        # 2. Lấy khóa trung vị
+        # Lấy median key
         median_key = full_child.keys[mid_index]
         
-        # 3. Cắt con cũ
+        # Right nhận keys sau median  
+        new_child.keys = full_child.keys[mid_index + 1:]
+        
+        # Left giữ keys trước median
         full_child.keys = full_child.keys[:mid_index]
         
-        # 4. Di chuyển con cái (nếu có)
+        # Xử lý children (nếu internal node)
         if not full_child.leaf:
             new_child.children = full_child.children[mid_index + 1:]
             full_child.children = full_child.children[:mid_index + 1]
         
-        # 5. Đẩy trung vị lên cha
+        # Đẩy median lên parent
         parent.keys.insert(index, median_key)
         parent.children.insert(index + 1, new_child)
-
-        # Ghi nhận các node bị ảnh hưởng
+        
+        # Track affected nodes
         self.affected_nodes.add(parent)
         self.affected_nodes.add(full_child)
         self.affected_nodes.add(new_child)
@@ -179,7 +207,6 @@ class BTree:
         return True
 
     def _delete(self, node, ma_sach):
-        t = self.t
         i = 0
         while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
             i += 1
@@ -194,11 +221,11 @@ class BTree:
                 self.affected_nodes.add(node)
             # Case 2: Xóa ở node trong
             else:
-                if len(node.children[i].keys) >= t:
+                if len(node.children[i].keys) > self.min_keys:
                     pred = self._get_predecessor(node, i)
                     node.keys[i] = pred
                     self._delete(node.children[i], pred.ma_sach)
-                elif len(node.children[i+1].keys) >= t:
+                elif len(node.children[i+1].keys) > self.min_keys:
                     succ = self._get_successor(node, i)
                     node.keys[i] = succ
                     self._delete(node.children[i+1], succ.ma_sach)
@@ -211,7 +238,7 @@ class BTree:
             if node.leaf: return
 
             flag = (i == len(node.keys))
-            if len(node.children[i].keys) < t:
+            if len(node.children[i].keys) <= self.min_keys:
                 self._fill(node, i)
 
             # Fix lỗi Index Error tiềm ẩn sau khi merge
@@ -234,9 +261,9 @@ class BTree:
         return cur.keys[0]
 
     def _fill(self, node, i):
-        if i != 0 and len(node.children[i-1].keys) >= self.t:
+        if i != 0 and len(node.children[i-1].keys) > self.min_keys:
             self._borrow_from_prev(node, i)
-        elif i != len(node.children)-1 and len(node.children[i+1].keys) >= self.t:
+        elif i != len(node.children)-1 and len(node.children[i+1].keys) > self.min_keys:
             self._borrow_from_next(node, i)
         else:
             if i != len(node.children)-1: self._merge(node, i)
@@ -272,47 +299,57 @@ class BTree:
 
     def _inorder(self, node):
         res = []
-        if not node: return res
-        i = 0
+        if not node or not node.keys: return res
+        
         for i in range(len(node.keys)):
-            if not node.leaf: res.extend(self._inorder(node.children[i]))
+            if not node.leaf and i < len(node.children):
+                res.extend(self._inorder(node.children[i]))
             res.append(node.keys[i])
-        if not node.leaf: res.extend(self._inorder(node.children[i+1]))
+        
+        # Thêm child cuối cùng (nếu có)
+        if not node.leaf and len(node.children) > len(node.keys):
+            res.extend(self._inorder(node.children[len(node.keys)]))
+        
         return res
     
     def get_tree_structure(self):
         return self.root.to_dict()
 
 # --- 2. KHỞI TẠO GLOBAL ---
-btree = BTree(t=3)
-current_t = 3  # Biến lưu giá trị t hiện tại
+btree = BTree(m=4)  # Mặc định Order m=4 (tương đương t=2 cũ)
+current_m = 4  # Biến lưu giá trị Order m hiện tại
 
 # --- 3. HÀM UTILS ---
 def save_data():
     books = btree.get_all_books()
     data = {
-        't': current_t,
+        'm': current_m,  # Lưu Order m
         'books': [b.to_dict() for b in books]
     }
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_data():
-    global btree, current_t
+    global btree, current_m
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 
-                # Kiểm tra format mới (có t) hay format cũ (chỉ có list)
-                if isinstance(data, dict) and 't' in data:
-                    current_t = data['t']
-                    books_data = data['books']
+                # Kiểm tra format
+                if isinstance(data, dict):
+                    if 'm' in data:
+                        # Format mới với Order m
+                        current_m = data['m']
+                    elif 't' in data:
+                        # Format cũ với Degree t -> chuyển sang m = 2t
+                        current_m = data['t'] * 2
+                    books_data = data.get('books', [])
                 else:
-                    # Format cũ - giữ nguyên current_t = 3
+                    # Format cũ nhất - chỉ có list sách
                     books_data = data
                 
-                btree = BTree(t=current_t)
+                btree = BTree(m=current_m)
                 for item in books_data:
                     book = Book(item['ma_sach'], item['ten_sach'], item['tac_gia'])
                     btree.insert(book)
@@ -423,32 +460,39 @@ def delete_book(ma):
 
 @app.route('/api/config/degree', methods=['POST'])
 def update_degree():
-    global btree, current_t
+    global btree, current_m
     try:
         data = request.json
-        new_t = int(data.get('t', 3))
-        if new_t < 2: return jsonify({'success': False, 'message': 't >= 2'})
+        # Chấp nhận cả 'm' (Order) hoặc 't' (Degree) để tương thích
+        if 'm' in data:
+            new_m = int(data.get('m', 4))
+        else:
+            # Nếu gửi 't', chuyển sang m = 2t
+            new_t = int(data.get('t', 2))
+            new_m = new_t * 2
         
-        # Cập nhật giá trị current_t
-        current_t = new_t
+        if new_m < 4: return jsonify({'success': False, 'message': 'Order m >= 4 (m=3 gây lỗi split)'})
+        
+        # Cập nhật giá trị current_m
+        current_m = new_m
         
         # Re-index
         current_books = btree.get_all_books()
-        btree = BTree(t=new_t)
+        btree = BTree(m=new_m)
         for b in current_books: btree.insert(b)
         save_data()
         
-        return jsonify({'success': True, 'message': f'Đã đổi sang t={new_t}'})
+        return jsonify({'success': True, 'message': f'Đã đổi sang Order m={new_m}'})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/reset', methods=['POST'])
 def reset_tree():
     """Xóa toàn bộ dữ liệu và khởi tạo lại cây rỗng"""
-    global btree, current_t
+    global btree, current_m
     try:
-        # Sử dụng current_t thay vì btree.t
-        btree = BTree(t=current_t)
+        # Sử dụng current_m
+        btree = BTree(m=current_m)
         
         # Lưu đè danh sách rỗng vào file
         save_data()
