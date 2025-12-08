@@ -185,14 +185,14 @@ async function resetTree() {
 }
 
 async function updateDegree() {
-    const mVal = document.getElementById('degreeInput').value;
-    if(mVal < 4) return showNotification('Order m >= 4 (m=3 không được hỗ trợ do giới hạn thuật toán)', 'error');
-    if(!confirm('Tái cấu trúc cây với Order m=' + mVal + '?')) return;
+    const tVal = document.getElementById('degreeInput').value;
+    if(tVal < 2) return showNotification('t >= 2', 'error');
+    if(!confirm('Tái cấu trúc cây?')) return;
     try {
         const res = await fetch('/api/config/degree', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ m: mVal })
+            body: JSON.stringify({ t: tVal })
         });
         const data = await res.json();
         if(data.success) { showNotification(data.message, 'success'); await loadAllData(); }
