@@ -3,44 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 Quản Lý Thư Viện - B-Tree Pro</title>
+    <title>Thư Viện B-Tree</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/animations/scale.css"/>
 </head>
 <body class="bg-slate-100 min-h-screen font-sans">
-    
     <nav class="bg-indigo-700 shadow-lg sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 text-white flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <i class="bi bi-book-half text-2xl"></i>
-                <h1 class="text-xl font-bold">Thư Viện B-Tree</h1>
-            </div>
+            <h1 class="text-xl font-bold"><i class="bi bi-book-half"></i> Thư Viện B-Tree</h1>
             <div class="flex items-center gap-2 bg-indigo-800 p-1.5 rounded-lg">
-                <span class="text-sm px-2">Cấu hình t =</span>
-                <input type="number" id="degreeInput" value="3" min="2" max="10" class="w-12 text-center text-black rounded font-bold">
+                <span class="text-sm px-2 font-bold text-yellow-300">Bậc (Order) m =</span>
+                <input type="number" id="degreeInput" value="4" min="3" max="10" class="w-14 text-center text-black rounded font-bold">
                 <button onclick="updateDegree()" class="px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-sm font-bold">Set</button>
                 <button onclick="resetTree()" class="px-3 py-1 bg-red-500 hover:bg-red-600 rounded text-sm"><i class="bi bi-trash"></i></button>
             </div>
         </div>
     </nav>
-
     <div class="container mx-auto px-4 py-6">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            
             <div class="lg:col-span-1 space-y-6">
-                <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
+                 <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
                     <h3 class="font-bold text-gray-700 mb-4 flex items-center gap-2"><i class="bi bi-plus-circle text-green-600"></i> Thêm Sách</h3>
                     <form id="addBookForm" class="space-y-3">
                         <input type="text" id="addMaSach" placeholder="Mã sách (VD: 101)" class="w-full p-2 border rounded" required>
                         <input type="text" id="addTenSach" placeholder="Tên sách" class="w-full p-2 border rounded" required>
                         <input type="text" id="addTacGia" placeholder="Tác giả" class="w-full p-2 border rounded" required>
                         <button type="submit" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">Thêm Mới</button>
-                        <button type="button" onclick="addRandomBook(this)" class="w-full border-2 border-dashed border-indigo-400 text-indigo-600 py-2 rounded font-bold hover:bg-indigo-50">
-                            <i class="bi bi-shuffle"></i> Thêm Random
-                        </button>
+                        <button type="button" onclick="addRandomBook(this)" class="w-full border-2 border-dashed border-indigo-400 text-indigo-600 py-2 rounded font-bold hover:bg-indigo-50"><i class="bi bi-shuffle"></i> Thêm Random</button>
                     </form>
                 </div>
-
                 <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
                     <h3 class="font-bold text-gray-700 mb-4">Công Cụ</h3>
                     <div class="space-y-4">
@@ -70,13 +65,13 @@
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-lg overflow-hidden min-h-[500px]">
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden min-h-[600px] flex flex-col">
                     <div class="flex border-b">
                         <button onclick="switchTab('list')" id="listTab" class="px-6 py-3 font-bold text-indigo-600 border-b-2 border-indigo-600">Danh Sách</button>
                         <button onclick="switchTab('tree')" id="treeTab" class="px-6 py-3 font-bold text-gray-500">Sơ Đồ Cây</button>
                     </div>
 
-                    <div class="p-6">
+                    <div class="p-6 flex-1 flex flex-col relative">
                         <div id="listContent" class="">
                             <table class="w-full text-left">
                                 <thead class="bg-gray-100 text-gray-600 uppercase text-sm">
@@ -86,14 +81,13 @@
                             </table>
                         </div>
 
-                        <div id="treeContent" class="hidden">
-                            <div id="animationControls" class="hidden flex flex-col md:flex-row justify-center items-center gap-4 mb-6 bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-inner">
+                        <div id="treeContent" class="hidden flex flex-col flex-1 h-full">
+                            <div id="animationControls" class="hidden flex flex-col md:flex-row justify-center items-center gap-4 mb-4 bg-indigo-50 p-3 rounded-lg border border-indigo-100 shadow-inner z-10 relative">
                                 <div class="flex items-center gap-2">
                                     <button onclick="animManager.prev()" class="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 text-indigo-700"><i class="bi bi-chevron-left font-bold"></i></button>
                                     <button onclick="animManager.play()" id="btnPlayPause" class="w-12 h-12 rounded-full bg-indigo-600 shadow-lg flex items-center justify-center hover:bg-indigo-700 text-white text-xl"><i class="bi bi-play-fill"></i></button>
                                     <button onclick="animManager.next()" class="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 text-indigo-700"><i class="bi bi-chevron-right font-bold"></i></button>
                                 </div>
-                                
                                 <div class="flex-1 w-full text-center md:text-left px-4">
                                     <p id="animMessage" class="font-bold text-indigo-800 text-sm mb-1">Đang chờ...</p>
                                     <div class="w-full bg-gray-300 rounded-full h-2 overflow-hidden">
@@ -102,15 +96,13 @@
                                     <p id="animCounter" class="text-xs text-gray-500 mt-1 text-right">0 / 0</p>
                                 </div>
                             </div>
-                            
-                            <div id="treeStructure" class="relative overflow-auto min-h-[600px] flex justify-center p-4"></div>
+                            <div id="treeStructure" class="relative bg-slate-50 flex-1 w-full h-[600px] border border-gray-200 rounded-lg overflow-hidden cursor-grab"></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     <div id="toastContainer" class="fixed top-5 right-5 z-50"></div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

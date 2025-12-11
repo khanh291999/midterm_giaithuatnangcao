@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import json
 import os
 import random
+import math
 
 app = Flask(__name__)
 
@@ -12,36 +13,28 @@ SAMPLE_FILE = 'sample_books.json'
 # --- 1. CLASS DEFINITIONS ---
 
 class Book:
-    """Represents a book entity."""
     def __init__(self, ma_sach, ten_sach, tac_gia):
-        self.ma_sach = ma_sach
+        self.ma_sach = str(ma_sach).strip() 
         self.ten_sach = ten_sach
         self.tac_gia = tac_gia
     
     def to_dict(self):
-        return {
-            'ma_sach': self.ma_sach,
-            'ten_sach': self.ten_sach,
-            'tac_gia': self.tac_gia
-        }
+        return {'ma_sach': self.ma_sach, 'ten_sach': self.ten_sach, 'tac_gia': self.tac_gia}
     
-    # Comparison overrides for cleaner B-Tree logic
-    def __lt__(self, other): return self.ma_sach < (other.ma_sach if isinstance(other, Book) else other)
-    def __gt__(self, other): return self.ma_sach > (other.ma_sach if isinstance(other, Book) else other)
-    def __eq__(self, other): return self.ma_sach == (other.ma_sach if isinstance(other, Book) else other)
-    def __le__(self, other): return self.ma_sach <= (other.ma_sach if isinstance(other, Book) else other)
-    def __ge__(self, other): return self.ma_sach >= (other.ma_sach if isinstance(other, Book) else other)
+    def __lt__(self, other): return self.ma_sach < (other.ma_sach if isinstance(other, Book) else str(other))
+    def __gt__(self, other): return self.ma_sach > (other.ma_sach if isinstance(other, Book) else str(other))
+    def __eq__(self, other): return self.ma_sach == (other.ma_sach if isinstance(other, Book) else str(other))
+    def __le__(self, other): return self.ma_sach <= (other.ma_sach if isinstance(other, Book) else str(other))
+    def __ge__(self, other): return self.ma_sach >= (other.ma_sach if isinstance(other, Book) else str(other))
 
 
 class BTreeNode:
-    """Represents a Node in the B-Tree."""
     def __init__(self, leaf=True):
         self.keys = []
         self.children = []
         self.leaf = leaf
     
     def to_dict(self):
-        # Recursive serialization to create a data snapshot
         return {
             'keys': [k.to_dict() for k in self.keys],
             'leaf': self.leaf,
@@ -50,313 +43,280 @@ class BTreeNode:
 
 
 class BTree:
-    """B-Tree Manager with Animation Log capabilities."""
-    def __init__(self, t=3):
-        self.root = BTreeNode()
-        self.t = t
+    def __init__(self, m=5):
+        self.root = BTreeNode(leaf=True)
+        self.m = m
+        self.max_keys = m - 1
+        self.min_keys = math.ceil(m / 2) - 1
         self.affected_nodes = set()
-        self.steps_log = [] # Stores steps for frontend animation
+        self.steps_log = [] 
 
     def capture_state(self, message, highlight_nodes=None):
-        """Captures the current state of the tree for animation."""
         snapshot = {
             'tree': self.root.to_dict(),
             'message': message,
             'highlights': []
         }
-        # Convert highlight_nodes objects into key signatures (string/array)
         if highlight_nodes:
             if isinstance(highlight_nodes, list):
                 snapshot['highlights'] = [[k.ma_sach for k in n.keys] for n in highlight_nodes]
             elif isinstance(highlight_nodes, BTreeNode):
                 snapshot['highlights'] = [[k.ma_sach for k in highlight_nodes.keys]]
-        
         self.steps_log.append(snapshot)
 
+    # --- SEARCH ---
     def search(self, ma_sach, node=None):
-        """Standard search (Internal use for logic checks)."""
         if node is None: node = self.root
         i = 0
-        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
-            i += 1
-        if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
-            return node.keys[i]
+        ma_sach = str(ma_sach)
+        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach: i += 1
+        if i < len(node.keys) and ma_sach == node.keys[i].ma_sach: return node.keys[i]
         if node.leaf: return None
         return self.search(ma_sach, node.children[i])
 
-    # --- SEARCH ANIMATION LOGIC ---
     def search_with_animation(self, ma_sach):
-        """Performs search and records steps for animation."""
-        self.steps_log = [] # Reset log
+        self.steps_log = [] 
         node = self.root
-        
+        ma_sach = str(ma_sach)
+        step_count = 1
         while True:
-            self.capture_state(f"Đang xét node: {[k.ma_sach for k in node.keys]}", highlight_nodes=node)
-            
+            keys_str = ", ".join([k.ma_sach for k in node.keys])
+            self.capture_state(f"🔍 <b>Bước {step_count}:</b> Xét Node <code>[{keys_str}]</code>.", highlight_nodes=node)
             i = 0
-            while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
-                i += 1
-            
+            while i < len(node.keys) and ma_sach > node.keys[i].ma_sach: i += 1
             if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
-                self.capture_state(f"ĐÃ TÌM THẤY: '{node.keys[i].ten_sach}'", highlight_nodes=node)
+                self.capture_state(f"✅ <b>TÌM THẤY:</b> <b>{ma_sach}</b>.", highlight_nodes=node)
                 return node.keys[i]
-            
             if node.leaf:
-                self.capture_state(f"Đã duyệt đến lá. Không tìm thấy '{ma_sach}'.", highlight_nodes=node)
+                self.capture_state(f"❌ <b>Kết thúc:</b> Không tìm thấy.", highlight_nodes=node)
                 return None
-                
-            self.capture_state(f"'{ma_sach}' không có ở đây. Đi xuống nhánh con index {i}.", highlight_nodes=[node, node.children[i]])
-            node = node.children[i]
+            
+            direction = ""
+            if i == 0: direction = f"nhỏ hơn {node.keys[0].ma_sach}"
+            elif i == len(node.keys): direction = f"lớn hơn {node.keys[-1].ma_sach}"
+            else: direction = f"giữa {node.keys[i-1].ma_sach} và {node.keys[i].ma_sach}"
 
-    # --- INSERT LOGIC (WITH ANIMATION) ---
+            self.capture_state(f"⬇️ <b>Đi xuống:</b> Vì {ma_sach} {direction}, xuống nhánh {i+1}.", highlight_nodes=[node, node.children[i]])
+            node = node.children[i]
+            step_count += 1
+
+    # --- INSERT ---
     def insert(self, book):
-        self.steps_log = [] # Reset log
+        self.steps_log = []
         self.affected_nodes = set()
+        if self.search(book.ma_sach):
+            self.capture_state(f"⚠️ Mã {book.ma_sach} đã tồn tại.")
+            return
+
+        self.capture_state(f"🚀 <b>Bắt đầu:</b> Chuẩn bị thêm sách {book.ten_sach} ({book.ma_sach}).")
         
-        self.capture_state(f"Bắt đầu thêm: {book.ten_sach} ({book.ma_sach})")
+        result = self._insert_recursive(self.root, book)
         
-        root = self.root
-        if len(root.keys) >= (2 * self.t - 1):
+        if result:
+            median_key, new_child = result
             new_root = BTreeNode(leaf=False)
-            new_root.children.append(self.root)
+            new_root.keys = [median_key]
+            new_root.children = [self.root, new_child]
             self.root = new_root
             
-            self.capture_state("Gốc đã đầy. Tạo gốc mới, chuẩn bị tách node con.", [self.root])
-            self._split_child(new_root, 0)
-            self._insert_non_full(new_root, book)
+            msg = f"🌳 <b>Tách Gốc:</b><br>1. Gốc cũ tách đôi.<br>2. Gốc mới chứa <b>{median_key.ma_sach}</b>."
+            self.capture_state(msg, [self.root, self.root.children[0], new_child])
         else:
-            self._insert_non_full(root, book)
-            
-        self.capture_state(f"Hoàn tất thêm sách {book.ma_sach}", [self.root])
+            self.capture_state(f"🏁 <b>Hoàn tất:</b> Cây đã ổn định.", [self.root])
 
-    def _insert_non_full(self, node, book):
-        self.capture_state(f"Đang xét duyệt node: {[k.ma_sach for k in node.keys]}", [node])
-        
-        i = len(node.keys) - 1
+    def _insert_recursive(self, node, book):
+        i = 0
+        while i < len(node.keys) and book.ma_sach > node.keys[i].ma_sach: i += 1
+            
         if node.leaf:
-            node.keys.append(None)
-            while i >= 0 and book.ma_sach < node.keys[i].ma_sach:
-                node.keys[i + 1] = node.keys[i]
-                i -= 1
-            node.keys[i + 1] = book
+            # Action First
+            node.keys.insert(i, book) 
             self.affected_nodes.add(node)
-            self.capture_state(f"Node lá còn chỗ. Chèn {book.ma_sach} vào vị trí thích hợp.", [node])
+            
+            self.capture_state(f"📥 <b>Chèn vào lá:</b> Đã đặt <b>{book.ma_sach}</b> vào vị trí index {i}.", [node])
+            
+            if len(node.keys) > self.max_keys:
+                self.capture_state(f"⚠️ <b>Tràn node:</b> Số khóa là {len(node.keys)} (Max={self.max_keys}). Chuẩn bị tách...", [node])
+                return self._split_node(node)
+            return None
         else:
-            while i >= 0 and book.ma_sach < node.keys[i].ma_sach:
-                i -= 1
-            i += 1
+            result = self._insert_recursive(node.children[i], book)
             
-            if len(node.children[i].keys) >= (2 * self.t - 1):
-                self.capture_state(f"Node con index {i} bị đầy (Full). Thực hiện tách node.", [node, node.children[i]])
-                self._split_child(node, i)
-                if book.ma_sach > node.keys[i].ma_sach:
-                    i += 1
-            
-            self._insert_non_full(node.children[i], book)
+            if result:
+                median, new_child = result
+                
+                # Connect First
+                node.keys.insert(i, median)
+                node.children.insert(i + 1, new_child)
+                self.affected_nodes.add(node)
+                
+                # Capture Later
+                msg = f"✂️ <b>Tách thành công:</b><br>- Node con đã tách làm đôi.<br>- Cha nhận khóa <b>{median.ma_sach}</b>."
+                self.capture_state(msg, [node, node.children[i], new_child])
+                
+                if len(node.keys) > self.max_keys:
+                    self.capture_state(f"⚠️ <b>Tràn cha:</b> Node cha cũng bị đầy. Tiếp tục tách lên trên.", [node])
+                    return self._split_node(node)
+            return None
 
-    def _split_child(self, parent, index):
-        t = self.t
-        full_child = parent.children[index]
-        new_child = BTreeNode(leaf=full_child.leaf)
-        mid_index = t - 1
+    def _split_node(self, node):
+        mid = len(node.keys) // 2
+        median = node.keys[mid]
         
-        new_child.keys = full_child.keys[mid_index + 1:]
-        median_key = full_child.keys[mid_index]
-        full_child.keys = full_child.keys[:mid_index]
+        new_node = BTreeNode(leaf=node.leaf)
+        new_node.keys = node.keys[mid + 1:]
+        node.keys = node.keys[:mid]
         
-        if not full_child.leaf:
-            new_child.children = full_child.children[mid_index + 1:]
-            full_child.children = full_child.children[:mid_index + 1]
-            
-        parent.keys.insert(index, median_key)
-        parent.children.insert(index + 1, new_child)
+        if not node.leaf:
+            new_node.children = node.children[mid + 1:]
+            node.children = node.children[:mid + 1]
+        
+        self.affected_nodes.update([node, new_node])
+        
+        return median, new_node
 
-        self.affected_nodes.add(parent)
-        self.affected_nodes.add(full_child)
-        self.affected_nodes.add(new_child)
-        
-        self.capture_state(f"Đã tách node. Đẩy khóa '{median_key.ma_sach}' lên cha.", [parent, full_child, new_child])
-
-    # --- DELETE LOGIC (WITH ANIMATION) ---
+    # --- DELETE (BASIC STRATEGY WITH IMPROVED HIGHLIGHT) ---
     def delete(self, ma_sach):
-        self.steps_log = [] # Reset animation log
+        self.steps_log = [] 
         self.affected_nodes = set()
+        ma_sach = str(ma_sach)
         
-        self.capture_state(f"Bắt đầu yêu cầu xóa sách: {ma_sach}")
-        
+        self.capture_state(f"🗑️ <b>Yêu cầu xóa:</b> {ma_sach}")
         if not self.search(ma_sach): 
-            self.capture_state(f"Không tìm thấy sách {ma_sach} để xóa.")
+            self.capture_state(f"❌ Không tìm thấy sách.")
             return False
             
-        self._delete(self.root, ma_sach)
+        self._delete_recursive(self.root, ma_sach)
         
-        if len(self.root.keys) == 0:
-            if not self.root.leaf:
-                self.root = self.root.children[0]
-                self.affected_nodes.add(self.root)
-                self.capture_state("Gốc bị rỗng. Hạ chiều cao cây xuống.", [self.root])
+        if len(self.root.keys) == 0 and not self.root.leaf:
+            self.root = self.root.children[0]
+            self.affected_nodes.add(self.root)
+            self.capture_state("📉 <b>Hạ gốc:</b> Gốc cũ rỗng, hạ chiều cao cây.", [self.root])
         
-        self.capture_state("Hoàn tất xóa.", [self.root])
+        self.capture_state("✅ <b>Hoàn tất xóa.</b>", [self.root])
         return True
 
-    def _delete(self, node, ma_sach):
-        t = self.t
+    def _delete_recursive(self, node, ma_sach):
         i = 0
-        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach:
-            i += 1
+        while i < len(node.keys) and ma_sach > node.keys[i].ma_sach: i += 1
         
         self.affected_nodes.add(node)
         
-        # Case 1: Tìm thấy khóa k tại node này
         if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
-            self.capture_state(f"Đã tìm thấy {ma_sach} tại node hiện tại.", [node])
-            
             if node.leaf:
-                # Case 1a: Xóa tại lá
+                self.capture_state(f"🎯 <b>Xóa tại lá:</b> Node là lá, xóa trực tiếp <b>{ma_sach}</b>.", [node])
                 node.keys.pop(i)
-                self.affected_nodes.add(node)
-                self.capture_state(f"Node là lá. Xóa trực tiếp {ma_sach}.", [node])
             else:
-                # Case 1b: Xóa tại node trong
-                if len(node.children[i].keys) >= t:
-                    pred = self._get_predecessor(node, i)
-                    self.capture_state(f"Thay thế {ma_sach} bằng tiền nhiệm {pred.ma_sach}.", [node, node.children[i]])
-                    node.keys[i] = pred
-                    self._delete(node.children[i], pred.ma_sach)
-                elif len(node.children[i+1].keys) >= t:
-                    succ = self._get_successor(node, i)
-                    self.capture_state(f"Thay thế {ma_sach} bằng kế thừa {succ.ma_sach}.", [node, node.children[i+1]])
-                    node.keys[i] = succ
-                    self._delete(node.children[i+1], succ.ma_sach)
-                else:
-                    self.capture_state(f"Cả 2 con đều ít khóa. Gộp 2 node con.", [node])
-                    self._merge(node, i)
-                    self._delete(node.children[i], ma_sach)
-        else:
-            # Case 2: Không tìm thấy tại node này, đi xuống con
-            if node.leaf: 
-                return # Should not happen if search checked first
+                self.capture_state(f"🎯 <b>Tìm thấy (Node trong):</b> Không xóa ngay. Tìm người thế mạng.", [node])
+                pred = self._get_predecessor(node, i)
+                self.capture_state(f"🔄 <b>Thay thế:</b> Lấy tiền nhiệm <b>{pred.ma_sach}</b> đè lên <b>{ma_sach}</b>.", [node])
+                node.keys[i] = pred
+                self._delete_recursive(node.children[i], pred.ma_sach)
+                
+                # Check Underflow
+                if len(node.children[i].keys) < self.min_keys:
+                    # --- FIX: HIGHLIGHT NODE CON BỊ THIẾU ---
+                    self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Con index {i} chỉ còn {len(node.children[i].keys)} khóa (Min={self.min_keys}).", [node.children[i]])
+                    self._fix_child(node, i)
 
-            flag = (i == len(node.keys))
+        else:
+            if node.leaf: return 
+
+            self.capture_state(f"⬇️ <b>Đi xuống:</b> Nhánh {i}.", [node.children[i]])
+            self._delete_recursive(node.children[i], ma_sach)
             
-            # Đảm bảo node con có đủ khóa (>= t) trước khi đi xuống
-            if len(node.children[i].keys) < t:
-                self.capture_state(f"Node con index {i} bị thiếu khóa (Underflow). Cần xử lý...", [node, node.children[i]])
-                self._fill(node, i)
-            
-            # Sau khi fill, index có thể thay đổi nếu merge xảy ra
-            if flag and i > len(node.keys):
-                self._delete(node.children[i-1], ma_sach)
+            # Check Underflow after return
+            if len(node.children[i].keys) < self.min_keys:
+                # --- FIX: HIGHLIGHT NODE CON BỊ THIẾU ---
+                self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Sau khi xóa, con index {i} bị thiếu khóa.", [node.children[i]])
+                self._fix_child(node, i)
+
+    def _fix_child(self, parent, i):
+        if i > 0 and len(parent.children[i-1].keys) > self.min_keys:
+            self._borrow_from_prev(parent, i)
+        elif i < len(parent.children)-1 and len(parent.children[i+1].keys) > self.min_keys:
+            self._borrow_from_next(parent, i)
+        else:
+            if i < len(parent.children) - 1:
+                self._merge(parent, i)
             else:
-                child_idx = i if i < len(node.children) else len(node.children) - 1
-                self.capture_state(f"Tiếp tục tìm {ma_sach} ở node con.", [node.children[child_idx]])
-                self._delete(node.children[child_idx], ma_sach)
+                self._merge(parent, i-1)
+
+    def _borrow_from_prev(self, parent, i):
+        child = parent.children[i]
+        sibling = parent.children[i-1]
+        msg = f"👈 <b>Mượn Trái (Xoay Phải):</b><br>1. Cha <b>{parent.keys[i-1].ma_sach}</b> xuống con.<br>2. Anh <b>{sibling.keys[-1].ma_sach}</b> lên thay cha."
+        self.capture_state(msg, [parent, child, sibling])
+        
+        child.keys.insert(0, parent.keys[i-1])
+        if not child.leaf: child.children.insert(0, sibling.children.pop())
+        parent.keys[i-1] = sibling.keys.pop()
+        self.affected_nodes.update([child, sibling, parent])
+
+    def _borrow_from_next(self, parent, i):
+        child = parent.children[i]
+        sibling = parent.children[i+1]
+        msg = f"👉 <b>Mượn Phải (Xoay Trái):</b><br>1. Cha <b>{parent.keys[i].ma_sach}</b> xuống con.<br>2. Em <b>{sibling.keys[0].ma_sach}</b> lên thay cha."
+        self.capture_state(msg, [parent, child, sibling])
+        
+        child.keys.append(parent.keys[i])
+        if not child.leaf: child.children.append(sibling.children.pop(0))
+        parent.keys[i] = sibling.keys.pop(0)
+        self.affected_nodes.update([child, sibling, parent])
+
+    def _merge(self, parent, i):
+        child = parent.children[i]
+        sibling = parent.children[i+1]
+        self.capture_state(f"🔗 <b>Gộp Node:</b> Không thể mượn. Gộp 2 con và khóa cha <b>{parent.keys[i].ma_sach}</b>.", [parent, child, sibling])
+        
+        child.keys.append(parent.keys[i])
+        child.keys.extend(sibling.keys)
+        if not child.leaf: child.children.extend(sibling.children)
+        parent.keys.pop(i)
+        parent.children.pop(i+1)
+        self.affected_nodes.update([child, parent])
 
     def _get_predecessor(self, node, i):
         cur = node.children[i]
         while not cur.leaf: cur = cur.children[-1]
         return cur.keys[-1]
 
-    def _get_successor(self, node, i):
-        cur = node.children[i+1]
-        while not cur.leaf: cur = cur.children[0]
-        return cur.keys[0]
-
-    def _fill(self, node, i):
-        if i != 0 and len(node.children[i-1].keys) >= self.t:
-            self._borrow_from_prev(node, i)
-        elif i != len(node.children)-1 and len(node.children[i+1].keys) >= self.t:
-            self._borrow_from_next(node, i)
-        else:
-            if i != len(node.children)-1: self._merge(node, i)
-            else: self._merge(node, i-1)
-
-    def _borrow_from_prev(self, node, i):
-        child = node.children[i]
-        sibling = node.children[i-1]
-        
-        self.capture_state(f"Mượn khóa từ anh em bên Trái ({sibling.keys[-1].ma_sach}).", [node, child, sibling])
-        
-        child.keys.insert(0, node.keys[i-1])
-        if not child.leaf: child.children.insert(0, sibling.children.pop())
-        node.keys[i-1] = sibling.keys.pop()
-        
-        self.affected_nodes.add(child)
-        self.affected_nodes.add(sibling)
-        self.affected_nodes.add(node)
-
-    def _borrow_from_next(self, node, i):
-        child = node.children[i]
-        sibling = node.children[i+1]
-        
-        self.capture_state(f"Mượn khóa từ anh em bên Phải ({sibling.keys[0].ma_sach}).", [node, child, sibling])
-        
-        child.keys.append(node.keys[i])
-        if not child.leaf: child.children.append(sibling.children.pop(0))
-        node.keys[i] = sibling.keys.pop(0)
-        
-        self.affected_nodes.add(child)
-        self.affected_nodes.add(sibling)
-        self.affected_nodes.add(node)
-
-    def _merge(self, node, i):
-        child = node.children[i]
-        sibling = node.children[i+1]
-        
-        self.capture_state(f"Gộp node con index {i} và {i+1} cùng khóa phân cách.", [node, child, sibling])
-        
-        child.keys.append(node.keys[i])
-        child.keys.extend(sibling.keys)
-        if not child.leaf: child.children.extend(sibling.children)
-        
-        node.keys.pop(i)
-        node.children.pop(i+1)
-        
-        self.affected_nodes.add(child)
-        self.affected_nodes.add(node)
-
-    def get_all_books(self):
-        return self._inorder(self.root)
-
+    # --- UTILS ---
+    def get_all_books(self): return self._inorder(self.root)
     def _inorder(self, node):
         res = []
         if not node: return res
-        i = 0
         for i in range(len(node.keys)):
             if not node.leaf: res.extend(self._inorder(node.children[i]))
             res.append(node.keys[i])
-        if not node.leaf: res.extend(self._inorder(node.children[i+1]))
+        if not node.leaf: res.extend(self._inorder(node.children[-1]))
         return res
-    
-    def get_tree_structure(self):
-        return self.root.to_dict()
-    
-    def get_affected_nodes_data(self):
-        result = []
-        for node in self.affected_nodes:
-            keys_sig = [k.ma_sach for k in node.keys]
-            result.append(keys_sig)
-        return result
+    def get_tree_structure(self): return self.root.to_dict()
+    def get_affected_nodes_data(self): return [[k.ma_sach for k in n.keys] for n in self.affected_nodes]
 
 # --- 2. GLOBAL & UTILS ---
-btree = BTree(t=3)
+btree = BTree(m=5)
 
 def save_data():
     books = btree.get_all_books()
-    data = [b.to_dict() for b in books]
+    payload = {'config': {'m': btree.m}, 'data': [b.to_dict() for b in books]}
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
 def load_data():
     global btree
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                btree = BTree(t=btree.t)
+                content = json.load(f)
+                if isinstance(content, list):
+                    data, m_val = content, 5
+                else:
+                    data = content.get('data', [])
+                    m_val = content.get('config', {}).get('m', 5)
+                btree = BTree(m=m_val)
                 for item in data:
-                    book = Book(item['ma_sach'], item['ten_sach'], item['tac_gia'])
-                    btree.insert(book)
+                    btree.insert(Book(item['ma_sach'], item['ten_sach'], item['tac_gia']))
             return True
         except: return False
     return False
@@ -365,110 +325,73 @@ load_data()
 
 # --- 3. ROUTES ---
 @app.route('/')
-def index():
-    return render_template('index.html')
+def index(): return render_template('index.html')
 
 @app.route('/api/books', methods=['GET'])
-def get_books():
-    books = btree.get_all_books()
-    return jsonify([b.to_dict() for b in books])
+def get_books(): return jsonify([b.to_dict() for b in btree.get_all_books()])
 
 @app.route('/api/tree', methods=['GET'])
 def get_tree():
-    return jsonify(btree.get_tree_structure())
+    data = btree.get_tree_structure()
+    data['m'] = btree.m
+    return jsonify(data)
 
 @app.route('/api/books', methods=['POST'])
 def add_book():
     data = request.json
-    ma = data.get('ma_sach')
-    if btree.search(ma):
-        return jsonify({'success': False, 'message': 'Mã sách đã tồn tại'})
-    
-    book = Book(ma, data.get('ten_sach'), data.get('tac_gia'))
-    btree.insert(book)
+    ma = str(data.get('ma_sach')).strip()
+    if btree.search(ma): return jsonify({'success': False, 'message': 'Mã đã tồn tại'})
+    btree.insert(Book(ma, data.get('ten_sach'), data.get('tac_gia')))
     save_data()
-    
-    # Return steps log for animation
-    return jsonify({
-        'success': True, 
-        'message': 'Thêm thành công',
-        'affected_nodes': btree.get_affected_nodes_data(),
-        'steps': btree.steps_log
-    })
+    return jsonify({'success': True, 'message': 'Thêm thành công', 'steps': btree.steps_log, 'affected_nodes': btree.get_affected_nodes_data()})
 
 @app.route('/api/books/random', methods=['POST'])
 def add_random_book():
-    if not os.path.exists(SAMPLE_FILE):
-        return jsonify({'success': False, 'message': 'Chưa có file sample_books.json'})
+    if not os.path.exists(SAMPLE_FILE): return jsonify({'success': False, 'message': 'Thiếu file sample'})
     try:
-        with open(SAMPLE_FILE, 'r', encoding='utf-8') as f:
-            samples = json.load(f)
-        current_codes = {b.ma_sach for b in btree.get_all_books()}
-        available = [s for s in samples if s['ma_sach'] not in current_codes]
-        
-        if not available:
-            return jsonify({'success': False, 'message': 'Hết sách mẫu!'})
-        
-        chosen = random.choice(available)
-        book = Book(chosen['ma_sach'], chosen['ten_sach'], chosen['tac_gia'])
+        with open(SAMPLE_FILE, 'r', encoding='utf-8') as f: samples = json.load(f)
+        cur = {b.ma_sach for b in btree.get_all_books()}
+        avail = [s for s in samples if str(s['ma_sach']) not in cur]
+        if not avail: return jsonify({'success': False, 'message': 'Hết sách mẫu'})
+        c = random.choice(avail)
+        book = Book(c['ma_sach'], c['ten_sach'], c['tac_gia'])
         btree.insert(book)
         save_data()
-        
-        return jsonify({
-            'success': True,
-            'message': f"Đã thêm: {book.ten_sach}",
-            'book': book.to_dict(),
-            'steps': btree.steps_log
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+        return jsonify({'success': True, 'message': f"Đã thêm: {book.ten_sach}", 'steps': btree.steps_log, 'affected_nodes': btree.get_affected_nodes_data()})
+    except Exception as e: return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/books/search/<ma>', methods=['GET'])
 def search_book(ma):
-    found_book = btree.search_with_animation(ma)
-    return jsonify({
-        'success': bool(found_book),
-        'book': found_book.to_dict() if found_book else None,
-        'steps': btree.steps_log,
-        'search_path': []
-    })
+    f = btree.search_with_animation(ma)
+    return jsonify({'success': bool(f), 'book': f.to_dict() if f else None, 'steps': btree.steps_log})
 
 @app.route('/api/books/<ma>', methods=['DELETE'])
 def delete_book(ma):
-    if not btree.search(ma):
-        return jsonify({'success': False, 'message': 'Không tìm thấy sách'})
-    
-    # Thực hiện xóa (lúc này steps_log đã được ghi lại trong hàm delete)
+    if not btree.search(ma): return jsonify({'success': False, 'message': 'Không tìm thấy'})
     btree.delete(ma)
     save_data()
-    
-    return jsonify({
-        'success': True, 
-        'message': 'Đã xóa thành công',
-        'affected_nodes': btree.get_affected_nodes_data(),
-        'steps': btree.steps_log # Trả về log để làm animation xóa
-    })
+    return jsonify({'success': True, 'message': 'Đã xóa', 'steps': btree.steps_log, 'affected_nodes': btree.get_affected_nodes_data()})
 
 @app.route('/api/config/degree', methods=['POST'])
 def update_degree():
     global btree
     try:
-        new_t = int(request.json.get('t', 3))
-        if new_t < 2: return jsonify({'success': False, 'message': 't >= 2'})
-        current_books = btree.get_all_books()
-        btree = BTree(t=new_t)
-        for b in current_books: btree.insert(b)
+        m = int(request.json.get('m', 5))
+        if m < 3: return jsonify({'success': False, 'message': 'm phải >= 3'})
+        books = btree.get_all_books()
+        btree = BTree(m=m)
+        for b in books: btree.insert(b)
         save_data()
-        return jsonify({'success': True, 'message': f'Đã đổi sang t={new_t}'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+        return jsonify({'success': True, 'message': f'Đã đổi m={m}'})
+    except: return jsonify({'success': False, 'message': 'Lỗi'})
 
 @app.route('/api/reset', methods=['POST'])
 def reset_tree():
     global btree
-    btree = BTree(t=btree.t)
+    current_m = btree.m
+    btree = BTree(m=current_m)
     save_data()
-    return jsonify({'success': True, 'message': 'Đã reset hệ thống'})
+    return jsonify({'success': True, 'message': 'Đã reset'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
