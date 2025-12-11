@@ -1,117 +1,32 @@
 {
   "config": {
-    "m": 5
+    "m": 3
   },
   "data": [
     {
-      "ma_sach": "BK-1001",
-      "ten_sach": "Kỹ thuật Blockchain Cho người mới",
-      "tac_gia": "Hoàng Trọng Nghĩa"
+      "ma_sach": "BK-0789",
+      "ten_sach": "Tư duy Triết học Toàn tập",
+      "tac_gia": "Nguyễn Thanh Hà"
     },
     {
-      "ma_sach": "BK-1002",
-      "ten_sach": "Lập trình Triết học Trong 24 giờ",
-      "tac_gia": "Lê Minh Đức"
+      "ma_sach": "BK-1971",
+      "ten_sach": "Nhập môn Kinh tế vĩ mô Trong 24 giờ",
+      "tac_gia": "Vũ Văn An"
     },
     {
-      "ma_sach": "BK-1003",
-      "ten_sach": "Lịch sử Marketing Thực chiến",
-      "tac_gia": "Lê Thanh Hà"
-    },
-    {
-      "ma_sach": "BK-1004",
-      "ten_sach": "Tư duy Dữ liệu lớn Thực chiến",
-      "tac_gia": "Bùi Tú Linh"
-    },
-    {
-      "ma_sach": "BK-1005",
-      "ten_sach": "Kỹ thuật IoT Ứng dụng",
-      "tac_gia": "Lê Văn An"
-    },
-    {
-      "ma_sach": "BK-1006",
-      "ten_sach": "Kỹ thuật Triết học Nâng cao",
-      "tac_gia": "Bùi Tú Linh"
-    },
-    {
-      "ma_sach": "BK-1007",
-      "ten_sach": "Tư duy Kinh tế vĩ mô Trong 24 giờ",
-      "tac_gia": "Trần Quốc Cường"
-    },
-    {
-      "ma_sach": "BK-1008",
-      "ten_sach": "Phân tích Triết học Thực chiến",
-      "tac_gia": "Phan Tú Linh"
-    },
-    {
-      "ma_sach": "BK-1009",
-      "ten_sach": "Tư duy Trí tuệ nhân tạo Trong 24 giờ",
-      "tac_gia": "Đặng Trọng Nghĩa"
-    },
-    {
-      "ma_sach": "BK-1010",
-      "ten_sach": "Kỹ thuật Trí tuệ nhân tạo Thực chiến",
-      "tac_gia": "Đặng Minh Đức"
-    },
-    {
-      "ma_sach": "BK-1011",
-      "ten_sach": "Lịch sử Python Cho người mới",
-      "tac_gia": "Huỳnh Thanh Hà"
-    },
-    {
-      "ma_sach": "BK-1012",
-      "ten_sach": "Nhập môn Python Thực chiến",
-      "tac_gia": "Đặng Hoàng Nam"
-    },
-    {
-      "ma_sach": "BK-1013",
-      "ten_sach": "Giáo trình C++ Cho người mới",
-      "tac_gia": "Nguyễn Văn An"
-    },
-    {
-      "ma_sach": "BK-1014",
-      "ten_sach": "Phân tích IoT Ứng dụng",
-      "tac_gia": "Huỳnh Tú Linh"
-    },
-    {
-      "ma_sach": "BK-1015",
-      "ten_sach": "Lịch sử Triết học Trong 24 giờ",
-      "tac_gia": "Lê Văn An"
-    },
-    {
-      "ma_sach": "BK-1016",
-      "ten_sach": "Phân tích Kinh tế vĩ mô Cho người mới",
-      "tac_gia": "Huỳnh Minh Đức"
-    },
-    {
-      "ma_sach": "BK-1017",
-      "ten_sach": "Lịch sử Trí tuệ nhân tạo Căn bản",
-      "tac_gia": "Vũ Trọng Nghĩa"
-    },
-    {
-      "ma_sach": "BK-1018",
-      "ten_sach": "Lập trình C++ Nâng cao",
-      "tac_gia": "Nguyễn Trọng Nghĩa"
-    },
-    {
-      "ma_sach": "BK-1019",
-      "ten_sach": "Lịch sử Trí tuệ nhân tạo Toàn tập",
-      "tac_gia": "Nguyễn Tú Linh"
-    },
-    {
-      "ma_sach": "BK-1020",
-      "ten_sach": "Lập trình Blockchain Ứng dụng",
-      "tac_gia": "Đặng Trọng Nghĩa"
-    },
-    {
-      "ma_sach": "BK-253",
-      "ten_sach": "Tư duy Marketing Trong 24 giờ",
-      "tac_gia": "Trần Trọng Nghĩa"
-    },
-    {
-      "ma_sach": "BK-891",
-      "ten_sach": "Nhập môn Trí tuệ nhân tạo Căn bản",
+      "ma_sach": "BK-1991",
+      "ten_sach": "Phân tích Trí tuệ nhân tạo Toàn tập",
       "tac_gia": "Phan Văn An"
+    },
+    {
+      "ma_sach": "BK-3128",
+      "ten_sach": "Kỹ thuật Marketing Ứng dụng",
+      "tac_gia": "Phạm Hoàng Nam"
+    },
+    {
+      "ma_sach": "BK-9899",
+      "ten_sach": "Nghệ thuật Triết học Nâng cao",
+      "tac_gia": "Phạm Bảo Khánh"
     }
   ]
 }
