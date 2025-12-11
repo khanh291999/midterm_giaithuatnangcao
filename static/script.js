@@ -49,6 +49,21 @@ style.innerHTML = `
         background-color: #fffbeb !important;
     }
 
+    /* Style cho message log (Pedagogical Mode) */
+    #animMessage code {
+        background: #e0e7ff;
+        color: #4338ca;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-weight: bold;
+        font-size: 0.9em;
+        border: 1px solid #c7d2fe;
+    }
+    #animMessage b {
+        color: #1e40af; /* Xanh đậm */
+    }
+
     /* Container Background */
     #treeStructure {
         background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
@@ -59,18 +74,6 @@ style.innerHTML = `
         background-color: rgba(30, 41, 59, 0.9);
         color: white;
         backdrop-filter: blur(4px);
-    }
-    /* Style cho message log */
-    #animMessage code {
-        background: #e0e7ff;
-        color: #4338ca;
-        padding: 2px 4px;
-        border-radius: 4px;
-        font-family: monospace;
-        font-weight: bold;
-    }
-    #animMessage b {
-        color: #1e40af; /* Màu xanh đậm hơn cho text in đậm */
     }
 `;
 document.head.appendChild(style);
@@ -91,14 +94,17 @@ class AnimationManager {
         this.btnPlay = document.getElementById('btnPlayPause');
     }
 
-    start(steps, targetKey = null) {
+    start(steps, targetKey = null, startAtEnd = false) {
         if (!steps || steps.length === 0) return;
         
         this.steps = steps;
         this.targetKey = targetKey;
-        this.currentIndex = 0;
+        
+        // Nếu startAtEnd = true, nhảy ngay tới bước cuối cùng
+        this.currentIndex = startAtEnd ? this.steps.length - 1 : 0;
+        
         this.isPlaying = false;
-        if(this.timer) clearInterval(this.timer);
+        if(this.timer) clearTimeout(this.timer);
         
         this.controlsDiv.classList.remove('hidden');
         this.updatePlayButton();
@@ -110,13 +116,15 @@ class AnimationManager {
 
         const step = this.steps[this.currentIndex];
         
-        this.msgEl.innerHTML = `<span class="text-blue-600">Bước ${this.currentIndex + 1}:</span> ${step.message}`;
+        // Support HTML content in message
+        this.msgEl.innerHTML = step.message; 
+        
         this.counterEl.innerText = `${this.currentIndex + 1} / ${this.steps.length}`;
         const pct = ((this.currentIndex + 1) / this.steps.length) * 100;
         this.progressEl.style.width = `${pct}%`;
 
         let currentHighlightKey = null;
-        if (this.targetKey && step.message && step.message.includes('ĐÃ TÌM THẤY')) {
+        if (this.targetKey && step.message && step.message.includes('TÌM THẤY')) {
             currentHighlightKey = this.targetKey;
         }
 
@@ -145,21 +153,54 @@ class AnimationManager {
         } else {
             this.isPlaying = true;
             this.updatePlayButton();
+
+            // Nếu đang ở cuối, quay về đầu để chạy lại
             if (this.currentIndex >= this.steps.length - 1) this.currentIndex = -1;
-            
-            this.timer = setInterval(() => {
+
+            // Hàm đệ quy để chạy bước tiếp theo với thời gian delay linh hoạt
+            const runNextStep = () => {
+                if (!this.isPlaying) return; // Dừng nếu người dùng bấm pause
+
                 if (this.currentIndex < this.steps.length - 1) {
                     this.next();
+
+                    // --- LOGIC TÍNH TOÁN THỜI GIAN DELAY ---
+                    let delay = 1500; // Tốc độ mặc định (1.5s)
+
+                    // Lấy thông điệp của bước VỪA CHẠY XONG
+                    const currentStepMsg = this.steps[this.currentIndex]?.message || "";
+                    
+                    // Các từ khóa cho thấy đây là một bước thay đổi cấu trúc quan trọng
+                    const complexActionKeywords = [
+                        "Gộp Node", // Merge
+                        "Hạ gốc",   // Lower root
+                        "Tách",     // Split (bao gồm "Tách Gốc", "Kết quả tách")
+                        "Thay thế", // Replace
+                        "Mượn"      // Borrow
+                    ];
+
+                    // Nếu thông điệp chứa từ khóa quan trọng, tăng gấp đôi thời gian chờ
+                    if (complexActionKeywords.some(kw => currentStepMsg.includes(kw))) {
+                        delay = 3000; 
+                    }
+                    // ---------------------------------------
+
+                    // Đặt lịch cho bước tiếp theo
+                    this.timer = setTimeout(runNextStep, delay);
+
                 } else {
                     this.stop();
                 }
-            }, 1200); 
+            };
+
+            // Bắt đầu chạy
+            runNextStep();
         }
     }
 
     stop() {
         this.isPlaying = false;
-        if(this.timer) clearInterval(this.timer);
+        if(this.timer) clearTimeout(this.timer); // Dùng clearTimeout vì chuyển sang setTimeout
         this.updatePlayButton();
     }
 
@@ -228,6 +269,11 @@ async function loadAllData(affectedNodesList = null, newlyAddedBookId = null, se
         renderBookTable(books);
         document.getElementById('bookCount').innerText = books.length;
         
+        // Cập nhật giá trị m hiện tại lên giao diện
+        if (treeRoot.m) {
+            document.getElementById('degreeInput').value = treeRoot.m;
+        }
+
         if (!skipTreeDraw) {
             drawTreeProfessional(treeRoot, affectedNodesList, newlyAddedBookId, searchPath, highlightKey);
         }
@@ -248,7 +294,8 @@ async function addBook(bookData, newBookId) {
             switchTab('tree');
             
             if (data.steps && data.steps.length > 0) {
-                animManager.start(data.steps);
+                // Thêm thường: Chạy từ đầu (startAtEnd = false)
+                animManager.start(data.steps, null, false);
                 await loadAllData(null, null, null, true);
             } else {
                 await loadAllData(data.affected_nodes, newBookId);
@@ -268,7 +315,10 @@ async function addRandomBook(btn) {
             switchTab('tree');
             
             if (data.steps && data.steps.length > 0) {
-                animManager.start(data.steps);
+                // Thêm Random: Nhảy tới cuối ngay lập tức (startAtEnd = true)
+                animManager.start(data.steps, null, true);
+                
+                // Vẫn cập nhật bảng danh sách
                 await loadAllData(null, null, null, true);
             } else {
                 const newBookId = data.book ? data.book.ma_sach : null;
@@ -308,7 +358,8 @@ async function searchBook(ma) {
 
         if (data.steps && data.steps.length > 0) {
             document.getElementById('animationControls').classList.remove('hidden');
-            animManager.start(data.steps, foundKeyId);
+            // Tìm kiếm: Chạy từ đầu
+            animManager.start(data.steps, foundKeyId, false);
             animManager.play(); 
         } else {
             await loadAllData(null, null, null, false, foundKeyId);
@@ -329,8 +380,8 @@ async function deleteBookById(ma) {
             switchTab('tree');
             
             if (data.steps && data.steps.length > 0) {
-                document.getElementById('animationControls').classList.remove('hidden');
-                animManager.start(data.steps);
+                // Xóa: Chạy từ đầu để hiểu logic
+                animManager.start(data.steps, null, false);
                 animManager.play();
                 await loadAllData(null, null, null, true);
             } else {
@@ -388,8 +439,11 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
     
     const canvas = document.createElement('div'); 
     canvas.className = 'btree-canvas relative';
-    canvas.style.width = `${Math.max(treeData.width + 200, container.clientWidth)}px`; 
-    canvas.style.height = `${treeData.height + 200}px`;
+    const minWidth = container.clientWidth * 2;  
+    const minHeight = container.clientHeight * 2; 
+    
+    canvas.style.width = `${Math.max(treeData.width + 400, minWidth)}px`; 
+    canvas.style.height = `${Math.max(treeData.height + 400, minHeight)}px`;
     
     const svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svgLayer.setAttribute('class', 'btree-svg-layer absolute top-0 left-0 pointer-events-none'); 
@@ -406,14 +460,7 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
         const keys = node.data.keys || [];
         const currentNodeSignature = keys.map(k => k.ma_sach || k).join(',');
 
-        if (searchPath && Array.isArray(searchPath)) {
-            const isInPath = searchPath.some(sig => sig.join(',') === currentNodeSignature);
-            if (isInPath) {
-                nodeEl.classList.add('search-path-node');
-                if (searchPath[searchPath.length-1].join(',') === currentNodeSignature) targetElement = nodeEl;
-            }
-        }
-
+        // Highlight logic
         if (affectedNodesList && Array.isArray(affectedNodesList)) {
             const isAffected = affectedNodesList.some(sig => sig.join(',') === currentNodeSignature);
             if (isAffected) {
@@ -497,10 +544,6 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
         });
 
         elem.parentElement.addEventListener('wheel', panzoomInstance.zoomWithWheel);
-    }
-    
-    if (targetElement && panzoomState.scale === 1 && panzoomState.x === 0) {
-        setTimeout(() => { targetElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }); }, 300);
     }
 }
 

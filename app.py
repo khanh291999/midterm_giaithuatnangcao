@@ -14,6 +14,7 @@ SAMPLE_FILE = 'sample_books.json'
 
 class Book:
     def __init__(self, ma_sach, ten_sach, tac_gia):
+        # Ensure ID is always a string and stripped of whitespace for consistent comparison
         self.ma_sach = str(ma_sach).strip() 
         self.ten_sach = ten_sach
         self.tac_gia = tac_gia
@@ -21,6 +22,7 @@ class Book:
     def to_dict(self):
         return {'ma_sach': self.ma_sach, 'ten_sach': self.ten_sach, 'tac_gia': self.tac_gia}
     
+    # Comparison overrides
     def __lt__(self, other): return self.ma_sach < (other.ma_sach if isinstance(other, Book) else str(other))
     def __gt__(self, other): return self.ma_sach > (other.ma_sach if isinstance(other, Book) else str(other))
     def __eq__(self, other): return self.ma_sach == (other.ma_sach if isinstance(other, Book) else str(other))
@@ -100,7 +102,7 @@ class BTree:
             node = node.children[i]
             step_count += 1
 
-    # --- INSERT ---
+    # --- INSERT (BOTTOM-UP & ACTION-FIRST) ---
     def insert(self, book):
         self.steps_log = []
         self.affected_nodes = set()
@@ -114,11 +116,13 @@ class BTree:
         
         if result:
             median_key, new_child = result
+            # Root Split Logic
             new_root = BTreeNode(leaf=False)
             new_root.keys = [median_key]
             new_root.children = [self.root, new_child]
             self.root = new_root
             
+            # Capture after creating new root to visualize hierarchy
             msg = f"🌳 <b>Tách Gốc:</b><br>1. Gốc cũ tách đôi.<br>2. Gốc mới chứa <b>{median_key.ma_sach}</b>."
             self.capture_state(msg, [self.root, self.root.children[0], new_child])
         else:
@@ -129,7 +133,7 @@ class BTree:
         while i < len(node.keys) and book.ma_sach > node.keys[i].ma_sach: i += 1
             
         if node.leaf:
-            # Action First
+            # Action First: Insert data first, then capture
             node.keys.insert(i, book) 
             self.affected_nodes.add(node)
             
@@ -150,7 +154,7 @@ class BTree:
                 node.children.insert(i + 1, new_child)
                 self.affected_nodes.add(node)
                 
-                # Capture Later
+                # Capture Later: Now the new child is attached, we can visualize it
                 msg = f"✂️ <b>Tách thành công:</b><br>- Node con đã tách làm đôi.<br>- Cha nhận khóa <b>{median.ma_sach}</b>."
                 self.capture_state(msg, [node, node.children[i], new_child])
                 
@@ -163,6 +167,10 @@ class BTree:
         mid = len(node.keys) // 2
         median = node.keys[mid]
         
+        # Intermediate Step: Visualize Median
+        msg_median = f"✨ <b>Xác định khóa giữa:</b> Khóa <b>{median.ma_sach}</b> (index {mid}) sẽ được đẩy lên."
+        self.capture_state(msg_median, [node])
+
         new_node = BTreeNode(leaf=node.leaf)
         new_node.keys = node.keys[mid + 1:]
         node.keys = node.keys[:mid]
@@ -173,9 +181,13 @@ class BTree:
         
         self.affected_nodes.update([node, new_node])
         
+        # Visualize Result of Split
+        # msg = f"✂️ <b>Kết quả tách:</b><br>1. Node Trái: {len(node.keys)} khóa.<br>2. Node Phải: {len(new_node.keys)} khóa."
+        # self.capture_state(msg, [node, new_node])
+
         return median, new_node
 
-    # --- DELETE (BASIC STRATEGY WITH IMPROVED HIGHLIGHT) ---
+    # --- DELETE (LAZY STRATEGY WITH DETAILED VISUALS) ---
     def delete(self, ma_sach):
         self.steps_log = [] 
         self.affected_nodes = set()
@@ -188,11 +200,25 @@ class BTree:
             
         self._delete_recursive(self.root, ma_sach)
         
+        # if len(self.root.keys) == 0 and not self.root.leaf:
+        #     self.root = self.root.children[0]
+        #     self.affected_nodes.add(self.root)
+        #     self.capture_state("📉 <b>Hạ gốc:</b> Gốc cũ rỗng, hạ chiều cao cây.", [self.root])
         if len(self.root.keys) == 0 and not self.root.leaf:
-            self.root = self.root.children[0]
+            # Lấy thông tin gốc mới để hiển thị cho rõ
+            new_root = self.root.children[0]
+            first_key_of_new_root = new_root.keys[0].ma_sach if new_root.keys else "..."
+            
+            self.root = new_root
             self.affected_nodes.add(self.root)
-            self.capture_state("📉 <b>Hạ gốc:</b> Gốc cũ rỗng, hạ chiều cao cây.", [self.root])
-        
+            
+            # Thông báo chi tiết hơn: Nguyên nhân -> Kết quả
+            msg = (
+                f"📉 <b>Giảm chiều cao cây:</b><br>"
+                f"1. Gốc cũ đã rỗng (do các bước gộp trước đó).<br>"
+                f"2. Loại bỏ gốc cũ, đưa node con (chứa <b>{first_key_of_new_root}</b>...) lên làm <b>Gốc Mới</b>."
+            )
+            self.capture_state(msg, [self.root])
         self.capture_state("✅ <b>Hoàn tất xóa.</b>", [self.root])
         return True
 
@@ -204,20 +230,55 @@ class BTree:
         
         if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
             if node.leaf:
-                self.capture_state(f"🎯 <b>Xóa tại lá:</b> Node là lá, xóa trực tiếp <b>{ma_sach}</b>.", [node])
+                self.capture_state(f"🎯 <b>Xóa tại lá:</b> Node hiện tại là lá.<br>👉 Xóa trực tiếp <b>{ma_sach}</b>.", [node])
                 node.keys.pop(i)
             else:
-                self.capture_state(f"🎯 <b>Tìm thấy (Node trong):</b> Không xóa ngay. Tìm người thế mạng.", [node])
-                pred = self._get_predecessor(node, i)
-                self.capture_state(f"🔄 <b>Thay thế:</b> Lấy tiền nhiệm <b>{pred.ma_sach}</b> đè lên <b>{ma_sach}</b>.", [node])
-                node.keys[i] = pred
-                self._delete_recursive(node.children[i], pred.ma_sach)
+                self.capture_state(f"👑 <b>Tìm thấy (Node Trong):</b> Khóa <b>{ma_sach}</b> không phải là lá.<br>👉 Cần tìm 'Người thay thế'.", [node])
                 
-                # Check Underflow
-                if len(node.children[i].keys) < self.min_keys:
-                    # --- FIX: HIGHLIGHT NODE CON BỊ THIẾU ---
-                    self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Con index {i} chỉ còn {len(node.children[i].keys)} khóa (Min={self.min_keys}).", [node.children[i]])
-                    self._fix_child(node, i)
+                # Strategy 1: Predecessor (Max Left)
+                if len(node.children[i].keys) > self.min_keys:
+                    pred_key = self._get_predecessor(node, i)
+                    
+                    # Highlight Replacement
+                    curr = node.children[i]
+                    while not curr.leaf: curr = curr.children[-1]
+                    self.capture_state(f"👀 <b>Chọn Tiền nhiệm:</b> Khóa lớn nhất bên trái là <b>{pred_key.ma_sach}</b>.", [node, curr])
+
+                    # Replace
+                    node.keys[i] = pred_key
+                    self.capture_state(f"🔄 <b>Thay thế:</b> Đưa <b>{pred_key.ma_sach}</b> lên.<br>👉 Tiếp tục đi xuống xóa bản gốc của nó.", [node])
+                    
+                    self._delete_recursive(node.children[i], pred_key.ma_sach)
+                    
+                    # Check Underflow (Rebalance)
+                    if len(node.children[i].keys) < self.min_keys:
+                        self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Con index {i} bị thiếu khóa.", [node.children[i]])
+                        self._fix_child(node, i)
+
+                # Strategy 2: Successor (Min Right)
+                elif len(node.children[i+1].keys) > self.min_keys:
+                    succ_key = self._get_successor(node, i)
+                    
+                    # Highlight Replacement
+                    curr = node.children[i+1]
+                    while not curr.leaf: curr = curr.children[0]
+                    self.capture_state(f"👀 <b>Chọn Kế thừa:</b> Khóa nhỏ nhất bên phải là <b>{succ_key.ma_sach}</b>.", [node, curr])
+
+                    # Replace
+                    node.keys[i] = succ_key
+                    self.capture_state(f"🔄 <b>Thay thế:</b> Đưa <b>{succ_key.ma_sach}</b> lên.<br>👉 Tiếp tục đi xuống xóa bản gốc của nó.", [node])
+                    
+                    self._delete_recursive(node.children[i+1], succ_key.ma_sach)
+
+                    if len(node.children[i+1].keys) < self.min_keys:
+                        self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Con index {i+1} bị thiếu khóa.", [node.children[i+1]])
+                        self._fix_child(node, i+1)
+
+                # Strategy 3: Merge
+                else:
+                    self.capture_state(f"🔗 <b>Gộp Node:</b> Cả 2 nhánh con đều ít khóa. Gộp lại.", [node, node.children[i], node.children[i+1]])
+                    self._merge(node, i)
+                    self._delete_recursive(node.children[i], ma_sach)
 
         else:
             if node.leaf: return 
@@ -227,8 +288,7 @@ class BTree:
             
             # Check Underflow after return
             if len(node.children[i].keys) < self.min_keys:
-                # --- FIX: HIGHLIGHT NODE CON BỊ THIẾU ---
-                self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Sau khi xóa, con index {i} bị thiếu khóa.", [node.children[i]])
+                self.capture_state(f"⚠️ <b>Thiếu hụt (Underflow):</b> Sau khi xóa ở dưới, con index {i} bị thiếu khóa.", [node.children[i]])
                 self._fix_child(node, i)
 
     def _fix_child(self, parent, i):
@@ -281,6 +341,11 @@ class BTree:
         while not cur.leaf: cur = cur.children[-1]
         return cur.keys[-1]
 
+    def _get_successor(self, node, i):
+        cur = node.children[i+1]
+        while not cur.leaf: cur = cur.children[0]
+        return cur.keys[0]
+
     # --- UTILS ---
     def get_all_books(self): return self._inorder(self.root)
     def _inorder(self, node):
@@ -294,11 +359,12 @@ class BTree:
     def get_tree_structure(self): return self.root.to_dict()
     def get_affected_nodes_data(self): return [[k.ma_sach for k in n.keys] for n in self.affected_nodes]
 
-# --- 2. GLOBAL & UTILS ---
+# --- 2. GLOBAL & UTILS (PERSISTENCE) ---
 btree = BTree(m=5)
 
 def save_data():
     books = btree.get_all_books()
+    # Save Config + Data
     payload = {'config': {'m': btree.m}, 'data': [b.to_dict() for b in books]}
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
