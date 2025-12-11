@@ -1,75 +1,74 @@
 // --- CẤU HÌNH & CSS ---
-const CONFIG = { NODE_WIDTH: 60, NODE_SPACING: 30, LEVEL_HEIGHT: 120 };
+const CONFIG = { NODE_SPACING: 30, LEVEL_HEIGHT: 120 };
 
-// Biến lưu trạng thái Pan/Zoom
 let panzoomState = { x: 0, y: 0, scale: 1 };
 let panzoomInstance = null;
 
 const style = document.createElement('style');
 style.innerHTML = `
-    @keyframes search-path-pulse {
-        0% { border-color: #3b82f6; box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
-        50% { border-color: #60a5fa; box-shadow: 0 0 15px rgba(59, 130, 246, 0.8); transform: scale(1.02); }
-        100% { border-color: #3b82f6; box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
-    }
-    .search-path-node {
-        animation: search-path-pulse 1.5s infinite;
-        border: 2px solid #3b82f6 !important;
-        background-color: rgba(59, 130, 246, 0.05);
-    }
+    /* --- ANIMATIONS CƠ BẢN --- */
+    @keyframes pulse-generic { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-    @keyframes green-key-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); transform: scale(1); }
-        50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); transform: scale(1.3); background: #16a34a !important; border-color: #fff; }
-        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); transform: scale(1); }
+    /* 1. SEARCH/INSERT STYLE (BLUE/GREEN/YELLOW) */
+    .node-search-active {
+        border-color: #3b82f6 !important; /* Blue-500 */
+        background-color: #eff6ff !important; /* Blue-50 */
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
     }
-    .newly-added-key {
-        animation: green-key-pulse 2s infinite;
-        background: #22c55e !important; color: white !important; border: 2px solid white !important;
-        z-index: 200; position: relative;
+    .node-insert-active {
+        border-color: #f59e0b !important; /* Amber-500 */
+        background-color: #fffbeb !important; /* Amber-50 */
     }
-
-    /* Found Key Style */
-    .found-key {
+    .key-found {
         background-color: #22c55e !important; /* Green-500 */
         color: white !important;
-        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.4);
-        transform: scale(1.25);
-        border: 2px solid #fff !important;
-        z-index: 100;
-        font-weight: bold;
+        transform: scale(1.2);
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3);
+        z-index: 50;
+    }
+    
+    /* 2. DELETE STYLE (RED - DANGER) - HIGHLIGHT KHI XÓA */
+    @keyframes red-flash {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
-    @keyframes node-affected-pulse {
-        0% { border-color: #f59e0b; } 50% { border-color: #fbbf24; } 100% { border-color: #f59e0b; }
-    }
-    .active-node {
-        animation: node-affected-pulse 1.5s infinite;
-        border: 2px solid #f59e0b !important;
-        background-color: #fffbeb !important;
+    .node-delete-mode {
+        border-color: #ef4444 !important; /* Red-500 */
+        background-color: #fef2f2 !important; /* Red-50 */
+        border-width: 3px !important;
+        animation: pulse-generic 1s infinite;
     }
 
-    /* Style cho message log (Pedagogical Mode) */
+    .key-delete-target {
+        background-color: #dc2626 !important; /* Red-600 */
+        color: white !important;
+        transform: scale(1.1);
+        animation: red-flash 1.5s infinite;
+        border: 2px solid #fee2e2 !important;
+        z-index: 50;
+    }
+
+    /* 3. RANGE SEARCH STYLE (PURPLE) */
+    .key-range-match {
+        background-color: #9333ea !important; /* Purple-600 */
+        color: white !important;
+        box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.3);
+    }
+
+    /* --- COMMON UI --- */
     #animMessage code {
-        background: #e0e7ff;
-        color: #4338ca;
-        padding: 2px 5px;
-        border-radius: 4px;
-        font-family: monospace;
-        font-weight: bold;
-        font-size: 0.9em;
-        border: 1px solid #c7d2fe;
+        background: #e0e7ff; color: #4338ca; padding: 2px 5px;
+        border-radius: 4px; font-family: monospace; font-weight: bold;
+        font-size: 0.9em; border: 1px solid #c7d2fe;
     }
-    #animMessage b {
-        color: #1e40af; /* Xanh đậm */
-    }
+    #animMessage b { color: #1e40af; }
 
-    /* Container Background */
     #treeStructure {
         background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
         background-size: 20px 20px;
     }
-    
     .tippy-box[data-theme~='translucent'] {
         background-color: rgba(30, 41, 59, 0.9);
         color: white;
@@ -85,7 +84,7 @@ class AnimationManager {
         this.currentIndex = 0;
         this.isPlaying = false;
         this.timer = null;
-        this.targetKey = null;
+        this.targetKey = null; 
         
         this.controlsDiv = document.getElementById('animationControls');
         this.msgEl = document.getElementById('animMessage');
@@ -96,11 +95,8 @@ class AnimationManager {
 
     start(steps, targetKey = null, startAtEnd = false) {
         if (!steps || steps.length === 0) return;
-        
         this.steps = steps;
         this.targetKey = targetKey;
-        
-        // Nếu startAtEnd = true, nhảy ngay tới bước cuối cùng
         this.currentIndex = startAtEnd ? this.steps.length - 1 : 0;
         
         this.isPlaying = false;
@@ -113,22 +109,14 @@ class AnimationManager {
 
     renderStep() {
         if (this.currentIndex < 0 || this.currentIndex >= this.steps.length) return;
-
         const step = this.steps[this.currentIndex];
         
-        // Support HTML content in message
         this.msgEl.innerHTML = step.message; 
-        
         this.counterEl.innerText = `${this.currentIndex + 1} / ${this.steps.length}`;
         const pct = ((this.currentIndex + 1) / this.steps.length) * 100;
         this.progressEl.style.width = `${pct}%`;
 
-        let currentHighlightKey = null;
-        if (this.targetKey && step.message && step.message.includes('TÌM THẤY')) {
-            currentHighlightKey = this.targetKey;
-        }
-
-        drawTreeProfessional(step.tree, step.highlights, null, null, currentHighlightKey); 
+        drawTreeProfessional(step.tree, step.highlights, this.targetKey, step.message); 
     }
 
     next() {
@@ -153,54 +141,32 @@ class AnimationManager {
         } else {
             this.isPlaying = true;
             this.updatePlayButton();
-
-            // Nếu đang ở cuối, quay về đầu để chạy lại
             if (this.currentIndex >= this.steps.length - 1) this.currentIndex = -1;
 
-            // Hàm đệ quy để chạy bước tiếp theo với thời gian delay linh hoạt
             const runNextStep = () => {
-                if (!this.isPlaying) return; // Dừng nếu người dùng bấm pause
+                if (!this.isPlaying) return;
 
                 if (this.currentIndex < this.steps.length - 1) {
                     this.next();
-
-                    // --- LOGIC TÍNH TOÁN THỜI GIAN DELAY ---
-                    let delay = 1500; // Tốc độ mặc định (1.5s)
-
-                    // Lấy thông điệp của bước VỪA CHẠY XONG
-                    const currentStepMsg = this.steps[this.currentIndex]?.message || "";
+                    let delay = 1200; 
+                    const msg = this.steps[this.currentIndex]?.message || "";
                     
-                    // Các từ khóa cho thấy đây là một bước thay đổi cấu trúc quan trọng
-                    const complexActionKeywords = [
-                        "Gộp Node", // Merge
-                        "Hạ gốc",   // Lower root
-                        "Tách",     // Split (bao gồm "Tách Gốc", "Kết quả tách")
-                        "Thay thế", // Replace
-                        "Mượn"      // Borrow
-                    ];
-
-                    // Nếu thông điệp chứa từ khóa quan trọng, tăng gấp đôi thời gian chờ
-                    if (complexActionKeywords.some(kw => currentStepMsg.includes(kw))) {
-                        delay = 3000; 
+                    const slowKeywords = ["Gộp", "Tách", "Thay thế", "Mượn", "Giảm chiều cao"];
+                    if (slowKeywords.some(kw => msg.includes(kw))) {
+                        delay = 2500; 
                     }
-                    // ---------------------------------------
-
-                    // Đặt lịch cho bước tiếp theo
                     this.timer = setTimeout(runNextStep, delay);
-
                 } else {
                     this.stop();
                 }
             };
-
-            // Bắt đầu chạy
             runNextStep();
         }
     }
 
     stop() {
         this.isPlaying = false;
-        if(this.timer) clearTimeout(this.timer); // Dùng clearTimeout vì chuyển sang setTimeout
+        if(this.timer) clearTimeout(this.timer);
         this.updatePlayButton();
     }
 
@@ -216,10 +182,9 @@ class AnimationManager {
         }
     }
 }
-
 const animManager = new AnimationManager();
 
-// --- KHỞI TẠO ---
+// --- KHỞI TẠO & EVENTS ---
 document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
     setupEventListeners();
@@ -233,7 +198,6 @@ function setupEventListeners() {
         const ten = document.getElementById('addTenSach').value.trim();
         const tg = document.getElementById('addTacGia').value.trim();
         if (!ma || !ten || !tg) return showNotification('Thiếu thông tin', 'warning');
-        
         await addBook({ ma_sach: ma, ten_sach: ten, tac_gia: tg }, ma);
         addForm.reset();
     });
@@ -253,9 +217,18 @@ function setupEventListeners() {
         if (!ma) return showNotification('Nhập mã sách', 'warning');
         if(confirm(`Xóa sách ${ma}?`)) { await deleteBookById(ma); deleteForm.reset(); }
     });
+    
+    const rangeForm = document.getElementById('rangeSearchForm');
+    if (rangeForm) rangeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const min = document.getElementById('rangeStart').value.trim();
+        const max = document.getElementById('rangeEnd').value.trim();
+        if (!min || !max) return showNotification('Nhập đủ khoảng', 'warning');
+        await executeRangeSearch(min, max);
+    });
 }
 
-// --- CORE FUNCTIONS ---
+// --- CORE FUNCTIONS (API CALLS) ---
 
 async function loadAllData(affectedNodesList = null, newlyAddedBookId = null, searchPath = null, skipTreeDraw = false, highlightKey = null) {
     try {
@@ -268,33 +241,25 @@ async function loadAllData(affectedNodesList = null, newlyAddedBookId = null, se
         
         renderBookTable(books);
         document.getElementById('bookCount').innerText = books.length;
-        
-        // Cập nhật giá trị m hiện tại lên giao diện
-        if (treeRoot.m) {
-            document.getElementById('degreeInput').value = treeRoot.m;
-        }
+        if (treeRoot.m) document.getElementById('degreeInput').value = treeRoot.m;
 
         if (!skipTreeDraw) {
             drawTreeProfessional(treeRoot, affectedNodesList, newlyAddedBookId, searchPath, highlightKey);
         }
-    } catch (error) { console.error('Lỗi tải dữ liệu:', error); }
+    } catch (error) { console.error('Error loading data:', error); }
 }
 
 async function addBook(bookData, newBookId) {
     try {
         const res = await fetch('/api/books', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(bookData)
         });
         const data = await res.json();
-        
         if (data.success) {
             showNotification(data.message, 'success');
             switchTab('tree');
-            
             if (data.steps && data.steps.length > 0) {
-                // Thêm thường: Chạy từ đầu (startAtEnd = false)
                 animManager.start(data.steps, null, false);
                 await loadAllData(null, null, null, true);
             } else {
@@ -304,6 +269,7 @@ async function addBook(bookData, newBookId) {
     } catch (e) { showNotification('Lỗi server', 'error'); }
 }
 
+// --- ĐÂY LÀ 2 HÀM BẠN ĐANG BỊ THIẾU ---
 async function addRandomBook(btn) {
     const originalContent = btn.innerHTML;
     try {
@@ -313,12 +279,8 @@ async function addRandomBook(btn) {
         if (data.success) {
             showNotification(data.message, 'success');
             switchTab('tree');
-            
             if (data.steps && data.steps.length > 0) {
-                // Thêm Random: Nhảy tới cuối ngay lập tức (startAtEnd = true)
                 animManager.start(data.steps, null, true);
-                
-                // Vẫn cập nhật bảng danh sách
                 await loadAllData(null, null, null, true);
             } else {
                 const newBookId = data.book ? data.book.ma_sach : null;
@@ -329,45 +291,95 @@ async function addRandomBook(btn) {
     finally { btn.innerHTML = originalContent; btn.disabled = false; }
 }
 
+async function generateBulkBooks(btn) {
+    const originalContent = btn.innerHTML;
+    try {
+        btn.innerHTML = `<span class="animate-spin inline-block">⟳</span> Đang nhập...`; btn.disabled = true;
+        const res = await fetch('/api/books/generate_bulk', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: 10 }) 
+        });
+        const data = await res.json();
+        if (data.success) {
+            showNotification(data.message, 'success');
+            await loadAllData(null, null, null, false); 
+            switchTab('tree');
+        } else { showNotification(data.message, 'error'); }
+    } catch (e) { showNotification('Lỗi server', 'error'); } 
+    finally { btn.innerHTML = originalContent; btn.disabled = false; }
+}
+// ----------------------------------------
+
 async function searchBook(ma) {
     try {
         const res = await fetch(`/api/books/search/${ma}`);
         const data = await res.json();
         const resultDiv = document.getElementById('searchResult');
-        
         switchTab('tree');
-        
         let foundKeyId = null;
-
         if (data.success) {
             const b = data.book;
             foundKeyId = b.ma_sach;
-            resultDiv.innerHTML = `<div class="p-3 bg-green-100 text-green-800 rounded border border-green-200 shadow-sm">
-                <div class="font-bold text-lg"><i class="bi bi-check-circle-fill"></i> Tìm thấy!</div>
-                <div><b>${b.ma_sach}</b> - ${b.ten_sach}</div>
-                <div class="text-sm italic">${b.tac_gia}</div>
-            </div>`;
+            resultDiv.innerHTML = `
+                <div class="relative bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500 overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-2 opacity-10">
+                        <i class="bi bi-book text-6xl text-green-600"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Kết quả tìm kiếm</div>
+                        <h3 class="text-xl font-bold text-gray-800">${b.ten_sach}</h3>
+                        <div class="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                            <span class="bg-gray-100 px-2 py-1 rounded font-mono text-indigo-600 font-bold"><i class="bi bi-barcode"></i> ${b.ma_sach}</span>
+                            <span><i class="bi bi-person-circle"></i> ${b.tac_gia}</span>
+                        </div>
+                    </div>
+                </div>`;
             showNotification('Đã tìm thấy sách!', 'success');
         } else {
-            resultDiv.innerHTML = `<div class="p-3 bg-red-100 text-red-800 rounded border border-red-200 shadow-sm">
-                <div class="font-bold"><i class="bi bi-x-circle-fill"></i> Không tìm thấy</div>
-                <div>Mã sách: ${ma}</div>
-            </div>`;
+            resultDiv.innerHTML = `<div class="p-3 bg-red-100 text-red-800 rounded border border-red-200 shadow-sm"><div class="font-bold"><i class="bi bi-x-circle-fill"></i> Không tìm thấy</div><div>ID: ${ma}</div></div>`;
             showNotification('Không tìm thấy', 'error');
         }
-
         if (data.steps && data.steps.length > 0) {
-            document.getElementById('animationControls').classList.remove('hidden');
-            // Tìm kiếm: Chạy từ đầu
             animManager.start(data.steps, foundKeyId, false);
             animManager.play(); 
-        } else {
-            await loadAllData(null, null, null, false, foundKeyId);
-        }
+        } else { await loadAllData(null, null, null, false, foundKeyId); }
+    } catch (e) { showNotification('Lỗi tìm kiếm', 'error'); }
+}
 
-    } catch (e) { 
+async function executeRangeSearch(min, max) {
+    try {
+        showNotification('Đang quét Range...', 'info');
+        const res = await fetch('/api/books/range', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_key: min, max_key: max })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            switchTab('tree');
+            showNotification(data.message, 'success');
+            if (data.steps && data.steps.length > 0) {
+                animManager.start(data.steps, null, false);
+                animManager.play();
+            }
+            const resultDiv = document.getElementById('searchResult');
+            if(resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="bg-purple-50 p-4 rounded border border-purple-200">
+                        <div class="font-bold text-purple-800 mb-2">Kết quả Range [${min} - ${max}]</div>
+                        <div class="max-h-40 overflow-y-auto text-sm space-y-1">
+                            ${data.books.map(b => `<div class="flex justify-between border-b border-purple-100 pb-1"><span>${b.ma_sach}</span> <span class="text-gray-500 truncate w-32">${b.ten_sach}</span></div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (e) {
         console.error(e);
-        showNotification('Lỗi tìm kiếm', 'error'); 
+        showNotification('Lỗi Range Search', 'error');
     }
 }
 
@@ -378,21 +390,16 @@ async function deleteBookById(ma) {
         if (data.success) {
             showNotification(data.message, 'success');
             switchTab('tree');
-            
             if (data.steps && data.steps.length > 0) {
-                // Xóa: Chạy từ đầu để hiểu logic
-                animManager.start(data.steps, null, false);
+                animManager.start(data.steps, ma, false);
                 animManager.play();
                 await loadAllData(null, null, null, true);
             } else {
                 document.getElementById('animationControls').classList.add('hidden');
                 await loadAllData(data.affected_nodes, null);
             }
-
-        } else {
-            showNotification(data.message, 'error');
-        }
-    } catch (e) { showNotification('Lỗi khi xóa', 'error'); }
+        } else { showNotification(data.message, 'error'); }
+    } catch (e) { showNotification('Lỗi xóa', 'error'); }
 }
 
 async function resetTree() {
@@ -405,43 +412,46 @@ async function resetTree() {
 }
 
 async function updateDegree() {
-    const mVal = document.getElementById('degreeInput').value; // Lấy giá trị từ ô input
+    const mVal = document.getElementById('degreeInput').value;
     if(mVal < 3) return showNotification('Bậc m phải >= 3', 'error');
-    if(!confirm('Tái cấu trúc cây với Bậc m=' + mVal + '?')) return;
+    if(!confirm('Tái cấu trúc với m=' + mVal + '?')) return;
     try {
         const res = await fetch('/api/config/degree', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ m: mVal }) // Gửi tham số m
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ m: mVal })
         });
         const data = await res.json();
         if(data.success) { showNotification(data.message, 'success'); await loadAllData(); }
     } catch(e) { showNotification('Lỗi server', 'error'); }
 }
 
-// --- VISUALIZATION ENGINE (Panzoom + Tooltip) ---
+// --- VISUALIZATION ENGINE ---
 
-function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId = null, searchPath = null, highlightKey = null) {
+function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, stepMessage = "") {
     const container = document.getElementById('treeStructure'); 
     container.innerHTML = ''; 
     
     if (!root || ((!root.keys || root.keys.length === 0) && (!root.children || root.children.length === 0))) {
-        container.innerHTML = '<div class="text-gray-400 text-center py-20 flex flex-col items-center"><i class="bi bi-tree text-4xl mb-2"></i><span>Cây rỗng</span></div>'; 
+        container.innerHTML = '<div class="text-gray-400 text-center py-20 flex flex-col items-center"><i class="bi bi-diagram-3 text-4xl mb-2"></i><span>Kho sách rỗng</span></div>'; 
         return;
     }
 
+    const deleteKeywords = ["Xóa", "Gộp", "Mượn", "Thay thế", "Delete", "Merge", "Borrow", "Replace", "Hạ gốc"];
+    const isDeleteMode = stepMessage && deleteKeywords.some(kw => stepMessage.includes(kw));
+
+    const isRangeMode = stepMessage && (stepMessage.includes("Range") || stepMessage.includes("khoảng"));
+
     const treeData = calculateTreeLayout(root);
     
-    // Wrapper cho Panzoom
     const panzoomWrapper = document.createElement('div');
     panzoomWrapper.id = 'panzoomWrapper';
     panzoomWrapper.className = 'origin-top-left min-w-full min-h-full';
     
     const canvas = document.createElement('div'); 
     canvas.className = 'btree-canvas relative';
-    const minWidth = container.clientWidth * 2;  
-    const minHeight = container.clientHeight * 2; 
     
+    const minWidth = container.clientWidth * 2;
+    const minHeight = container.clientHeight * 2;
     canvas.style.width = `${Math.max(treeData.width + 400, minWidth)}px`; 
     canvas.style.height = `${Math.max(treeData.height + 400, minHeight)}px`;
     
@@ -454,50 +464,47 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
 
     treeData.nodes.forEach(node => {
         const nodeEl = document.createElement('div'); 
-        nodeEl.className = 'btree-node-group absolute flex gap-1 bg-slate-700 p-2 rounded-lg shadow-lg border-2 border-slate-600 transition-all duration-300';
+        nodeEl.className = 'btree-node-group absolute flex gap-1 bg-slate-700 p-1.5 rounded-xl shadow-lg border-2 border-slate-600 transition-all duration-300';
         nodeEl.style.left = `${node.x + 50}px`; nodeEl.style.top = `${node.y + 20}px`;
         
         const keys = node.data.keys || [];
         const currentNodeSignature = keys.map(k => k.ma_sach || k).join(',');
 
-        // Highlight logic
         if (affectedNodesList && Array.isArray(affectedNodesList)) {
             const isAffected = affectedNodesList.some(sig => sig.join(',') === currentNodeSignature);
             if (isAffected) {
-                nodeEl.classList.add('active-node');
+                if (isDeleteMode) {
+                    nodeEl.classList.add('node-delete-mode'); 
+                } else if (stepMessage.includes("Chèn") || stepMessage.includes("Insert")) {
+                    nodeEl.classList.add('node-insert-active');
+                } else {
+                    nodeEl.classList.add('node-search-active'); 
+                }
                 if (!targetElement) targetElement = nodeEl;
             }
         }
 
         if (keys.length === 0) {
-            nodeEl.style.width = '20px';
-            nodeEl.style.height = '20px';
-            nodeEl.classList.add('bg-slate-500'); 
+            nodeEl.style.width = '20px'; nodeEl.style.height = '20px'; nodeEl.classList.add('bg-slate-500'); 
         }
 
         keys.forEach(key => {
             const keyEl = document.createElement('div'); 
-            keyEl.className = 'btree-key w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs shadow-inner cursor-default hover:bg-blue-400 transition-colors';
+            keyEl.className = 'btree-key h-9 px-3 min-w-[40px] rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold text-xs shadow-inner cursor-default hover:bg-blue-400 transition-colors whitespace-nowrap';
+            
             const currentMaSach = key.ma_sach || key;
             keyEl.innerText = currentMaSach; 
-            
-            // Tooltip Content
-            const tooltipContent = `
-                <div class='text-left text-xs'>
-                    <div class='font-bold text-yellow-300'>${key.ten_sach || 'N/A'}</div>
-                    <div class='italic text-gray-300'>${key.tac_gia || 'N/A'}</div>
-                </div>
-            `;
-            keyEl.setAttribute('data-tippy-content', tooltipContent);
+            keyEl.setAttribute('data-tippy-content', `<div class='text-xs'>${key.ten_sach || 'N/A'}</div>`);
 
-            if (newlyAddedBookId && currentMaSach === newlyAddedBookId) {
-                keyEl.classList.add('newly-added-key');
+            if (targetKey && currentMaSach === targetKey) {
+                if (isDeleteMode) {
+                    keyEl.classList.add('key-delete-target'); 
+                } else {
+                    keyEl.classList.add('key-found');
+                }
                 targetElement = nodeEl;
-            }
-
-            if (highlightKey && currentMaSach === highlightKey) {
-                keyEl.classList.add('found-key');
-                targetElement = nodeEl;
+            } else if (isRangeMode && stepMessage.includes("candidates") && stepMessage.includes(currentMaSach)) {
+                keyEl.classList.add('key-range-match');
             }
 
             nodeEl.appendChild(keyEl);
@@ -505,13 +512,15 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
         canvas.appendChild(nodeEl);
 
         if (node.parent) { 
-            const startX = node.parent.x + (node.parent.width/2) + 50; const startY = node.parent.y + node.parent.height + 20;
-            const endX = node.x + (node.width/2) + 50; const endY = node.y + 20;
+            const startX = node.parent.x + (node.parent.width/2) + 50; 
+            const startY = node.parent.y + node.parent.height + 15; 
+            const endX = node.x + (node.width/2) + 50; 
+            const endY = node.y + 20;
+            
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             const controlY = (startY + endY) / 2;
             const d = `M ${startX} ${startY} C ${startX} ${controlY}, ${endX} ${controlY}, ${endX} ${endY}`;
-            path.setAttribute('d', d); path.setAttribute('fill', 'none'); 
-            path.setAttribute('stroke', '#94a3b8'); path.setAttribute('stroke-width', '2');
+            path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#94a3b8'); path.setAttribute('stroke-width', '2');
             svgLayer.appendChild(path);
         }
     });
@@ -519,58 +528,51 @@ function drawTreeProfessional(root, affectedNodesList = null, newlyAddedBookId =
     panzoomWrapper.appendChild(canvas);
     container.appendChild(panzoomWrapper);
 
-    // Init Tooltips
-    if (typeof tippy !== 'undefined') {
-        tippy('[data-tippy-content]', { allowHTML: true, animation: 'scale', theme: 'translucent' });
-    }
+    if (typeof tippy !== 'undefined') tippy('[data-tippy-content]', { allowHTML: true, animation: 'scale', theme: 'translucent' });
 
-    // Init Panzoom
     if (typeof Panzoom !== 'undefined') {
         const elem = document.getElementById('panzoomWrapper');
-        panzoomInstance = Panzoom(elem, {
-            maxScale: 3, minScale: 0.1, startScale: 1,
-            canvas: true 
-        });
+        panzoomInstance = Panzoom(elem, { maxScale: 3, minScale: 0.1, startScale: 1, canvas: true });
         
-        // Restore State
         if (panzoomState.scale !== 1 || panzoomState.x !== 0 || panzoomState.y !== 0) {
             panzoomInstance.zoom(panzoomState.scale, { animate: false });
             panzoomInstance.pan(panzoomState.x, panzoomState.y, { animate: false });
         }
-
-        elem.addEventListener('panzoomchange', (e) => {
-            const detail = e.detail;
-            panzoomState = { x: detail.x, y: detail.y, scale: detail.scale };
-        });
-
+        elem.addEventListener('panzoomchange', (e) => { panzoomState = { x: e.detail.x, y: e.detail.y, scale: e.detail.scale }; });
         elem.parentElement.addEventListener('wheel', panzoomInstance.zoomWithWheel);
     }
 }
 
 function renderBookTable(books) {
     const tbody = document.getElementById('bookTableBody');
-    if (!books || books.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">Chưa có dữ liệu</td></tr>`; return;
-    }
+    if (!books || books.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">Chưa có dữ liệu</td></tr>`; return; }
     tbody.innerHTML = books.map((book, idx) => `
         <tr class="hover:bg-gray-100 transition border-b">
             <td class="px-4 py-3 font-bold text-indigo-600">${book.ma_sach}</td>
             <td class="px-4 py-3 text-gray-800">${book.ten_sach}</td>
             <td class="px-4 py-3 text-gray-600">${book.tac_gia}</td>
-            <td class="px-4 py-3 text-center">
-               <button onclick="if(confirm('Xóa sách ${book.ma_sach}?')) deleteBookById('${book.ma_sach}')" class="text-red-500 hover:text-red-700 p-2"><i class="bi bi-trash"></i></button>
-            </td>
+            <td class="px-4 py-3 text-center"><button onclick="if(confirm('Xóa sách ${book.ma_sach}?')) deleteBookById('${book.ma_sach}')" class="text-red-500 hover:text-red-700 p-2"><i class="bi bi-trash"></i></button></td>
         </tr>`).join('');
 }
 
 function calculateTreeLayout(root) {
     let nodes = []; let maxDepth = 0;
+    
+    // BASE WIDTH
+    const KEY_WIDTH = 66; 
+
     function traverse(node, depth, parent) {
         if (!node) return null;
         maxDepth = Math.max(maxDepth, depth);
+        
+        const computedWidth = (node.keys.length * KEY_WIDTH) + 16;
+        
         const processedNode = {
             data: node, depth: depth, parent: parent, children: [],
-            width: (node.keys.length * 44) + 16, height: 56, x: 0, y: depth * CONFIG.LEVEL_HEIGHT
+            width: computedWidth, 
+            height: 50, 
+            x: 0, 
+            y: depth * CONFIG.LEVEL_HEIGHT
         };
         if (node.children) {
             node.children.forEach(child => {
@@ -599,9 +601,9 @@ function calculateTreeLayout(root) {
 function showNotification(msg, type='success') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    const colorClass = type === 'success' ? 'bg-green-600' : (type === 'warning' ? 'bg-yellow-500' : 'bg-red-500');
+    const colorClass = type === 'success' ? 'bg-green-600' : (type === 'warning' ? 'bg-yellow-500' : (type === 'info' ? 'bg-indigo-500' : 'bg-red-500'));
     toast.className = `${colorClass} text-white px-6 py-3 rounded-lg shadow-xl mb-3 flex items-center transform transition-all duration-300 translate-x-full`;
-    toast.innerHTML = `<i class="bi ${type==='success'?'bi-check-circle':'bi-exclamation-circle'} mr-2 text-xl"></i> ${msg}`;
+    toast.innerHTML = `<i class="bi ${type==='success'?'bi-check-circle':(type==='info'?'bi-info-circle':'bi-exclamation-circle')} mr-2 text-xl"></i> ${msg}`;
     container.appendChild(toast);
     requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
     setTimeout(() => { toast.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
