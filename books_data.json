@@ -1,32 +1,57 @@
 {
   "config": {
-    "m": 3
+    "m": 5
   },
   "data": [
     {
-      "ma_sach": "BK-0789",
-      "ten_sach": "Tư duy Triết học Toàn tập",
-      "tac_gia": "Nguyễn Thanh Hà"
+      "ma_sach": "BK-2110",
+      "ten_sach": "Giáo trình Dữ liệu lớn Trong 24 giờ",
+      "tac_gia": "Vũ Hoàng Nam"
     },
     {
-      "ma_sach": "BK-1971",
-      "ten_sach": "Nhập môn Kinh tế vĩ mô Trong 24 giờ",
-      "tac_gia": "Vũ Văn An"
+      "ma_sach": "BK-4061",
+      "ten_sach": "Tư duy IoT Toàn tập",
+      "tac_gia": "Bùi Thanh Hà"
     },
     {
-      "ma_sach": "BK-1991",
-      "ten_sach": "Phân tích Trí tuệ nhân tạo Toàn tập",
-      "tac_gia": "Phan Văn An"
+      "ma_sach": "BK-4795",
+      "ten_sach": "Lập trình Blockchain Nâng cao",
+      "tac_gia": "Đặng Quốc Cường"
     },
     {
-      "ma_sach": "BK-3128",
-      "ten_sach": "Kỹ thuật Marketing Ứng dụng",
-      "tac_gia": "Phạm Hoàng Nam"
+      "ma_sach": "BK-4893",
+      "ten_sach": "Nghệ thuật C++ Thực chiến",
+      "tac_gia": "Hoàng Quốc Cường"
     },
     {
-      "ma_sach": "BK-9899",
-      "ten_sach": "Nghệ thuật Triết học Nâng cao",
+      "ma_sach": "BK-6472",
+      "ten_sach": "Lập trình Blockchain Nâng cao",
+      "tac_gia": "Hoàng Quốc Cường"
+    },
+    {
+      "ma_sach": "BK-6586",
+      "ten_sach": "Lập trình Kinh tế vĩ mô Nâng cao",
       "tac_gia": "Phạm Bảo Khánh"
+    },
+    {
+      "ma_sach": "BK-6861",
+      "ten_sach": "Phân tích C++ Toàn tập",
+      "tac_gia": "Phạm Thanh Hà"
+    },
+    {
+      "ma_sach": "BK-8099",
+      "ten_sach": "Nhập môn Dữ liệu lớn Thực chiến",
+      "tac_gia": "Phạm Thanh Hà"
+    },
+    {
+      "ma_sach": "BK-9534",
+      "ten_sach": "Giáo trình Dữ liệu lớn Căn bản",
+      "tac_gia": "Huỳnh Thị Bình"
+    },
+    {
+      "ma_sach": "BK-9693",
+      "ten_sach": "Kỹ thuật C++ Nâng cao",
+      "tac_gia": "Lê Thị Bình"
     }
   ]
 }

@@ -9,7 +9,7 @@ app = Flask(__name__)
 # --- CONFIGURATION ---
 DATA_FILE = 'books_data.json'
 
-# --- 0. DATA GENERATOR ---
+# --- 0. DATA GENERATOR (Vietnamese Context) ---
 LIBRARY_DATA = {
     "prefixes": ["Giáo trình", "Nhập môn", "Kỹ thuật", "Lập trình", "Tư duy", "Nghệ thuật", "Lịch sử", "Phân tích"],
     "subjects": ["Python", "C++", "Trí tuệ nhân tạo", "Blockchain", "Triết học", "Kinh tế vĩ mô", "Marketing", "IoT", "Dữ liệu lớn"],
@@ -21,6 +21,10 @@ LIBRARY_DATA = {
 # --- 1. CLASS DEFINITIONS ---
 
 class Book:
+    """
+    Represents a Book entity.
+    Implements comparison operators based on 'ma_sach' (Book ID) for B-Tree ordering.
+    """
     def __init__(self, ma_sach, ten_sach, tac_gia):
         self.ma_sach = str(ma_sach).strip() 
         self.ten_sach = ten_sach
@@ -29,6 +33,7 @@ class Book:
     def to_dict(self):
         return {'ma_sach': self.ma_sach, 'ten_sach': self.ten_sach, 'tac_gia': self.tac_gia}
     
+    # Operator Overloading for easy comparison
     def __lt__(self, other): return self.ma_sach < (other.ma_sach if isinstance(other, Book) else str(other))
     def __gt__(self, other): return self.ma_sach > (other.ma_sach if isinstance(other, Book) else str(other))
     def __eq__(self, other): return self.ma_sach == (other.ma_sach if isinstance(other, Book) else str(other))
@@ -37,10 +42,13 @@ class Book:
 
 
 class BTreeNode:
+    """
+    Represents a Node in the B-Tree.
+    """
     def __init__(self, leaf=True):
-        self.keys = []
-        self.children = []
-        self.leaf = leaf
+        self.keys = []      # List of Book objects
+        self.children = []  # List of BTreeNode objects
+        self.leaf = leaf    # Boolean: True if leaf node
     
     def to_dict(self):
         return {
@@ -51,29 +59,47 @@ class BTreeNode:
 
 
 class BTree:
+    """
+    Main B-Tree Logic Class.
+    Includes methods for Search, Insert, Delete, and Visualization logging.
+    """
     def __init__(self, m=5):
         self.root = BTreeNode(leaf=True)
         self.m = m
         self.max_keys = m - 1
         self.min_keys = math.ceil(m / 2) - 1
-        self.affected_nodes = set()
-        self.steps_log = [] 
+        self.affected_nodes = set() # To highlight modified nodes in UI
+        self.steps_log = []         # To store animation steps for Frontend
 
-    def capture_state(self, message, highlight_nodes=None):
+    # --- [UPDATED] CAPTURE STATE WITH FOUND KEYS ---
+    def capture_state(self, message, highlight_nodes=None, found_keys=None):
+        """
+        Captures the current state of the tree for animation.
+        NEW: found_keys param allows persisting highlighted results.
+        """
         snapshot = {
             'tree': self.root.to_dict(),
             'message': message,
-            'highlights': []
+            'highlights': [],
+            'found_keys': [] # Mới: Lưu danh sách key tìm được
         }
+        
+        # Xử lý highlight nodes (như cũ)
         if highlight_nodes:
             if isinstance(highlight_nodes, list):
                 snapshot['highlights'] = [[k.ma_sach for k in n.keys] for n in highlight_nodes]
             elif isinstance(highlight_nodes, BTreeNode):
                 snapshot['highlights'] = [[k.ma_sach for k in highlight_nodes.keys]]
+        
+        # MỚI: Xử lý danh sách kết quả cuối cùng
+        if found_keys:
+            snapshot['found_keys'] = [k.ma_sach for k in found_keys]
+            
         self.steps_log.append(snapshot)
 
-    # --- SEARCH ---
+    # --- SEARCH OPERATIONS ---
     def search(self, ma_sach, node=None):
+        """Standard Search (Internal check)."""
         if node is None: node = self.root
         i = 0
         ma_sach = str(ma_sach)
@@ -83,6 +109,7 @@ class BTree:
         return self.search(ma_sach, node.children[i])
 
     def search_with_animation(self, ma_sach):
+        """Search with step-by-step logging."""
         self.steps_log = [] 
         node = self.root
         ma_sach = str(ma_sach)
@@ -92,9 +119,11 @@ class BTree:
             self.capture_state(f"🔍 <b>Bước {step_count}:</b> Xét Node <code>[{keys_str}]</code>.", highlight_nodes=node)
             i = 0
             while i < len(node.keys) and ma_sach > node.keys[i].ma_sach: i += 1
+            
             if i < len(node.keys) and ma_sach == node.keys[i].ma_sach:
                 self.capture_state(f"✅ <b>TÌM THẤY:</b> Khóa <b>{ma_sach}</b>.", highlight_nodes=node)
                 return node.keys[i]
+            
             if node.leaf:
                 self.capture_state(f"❌ <b>Kết thúc:</b> Không tìm thấy.", highlight_nodes=node)
                 return None
@@ -108,43 +137,82 @@ class BTree:
             node = node.children[i]
             step_count += 1
 
-    # --- RANGE SEARCH ---
-    def search_range_with_animation(self, min_val, max_val):
+    # --- BATCH OPTIMIZED RANGE SEARCH (KEY FEATURE) ---
+    def search_range_optimized(self, min_val, max_val):
+        """
+        Performs a range search using batch processing and branch pruning.
+        """
         self.steps_log = []
         results = []
-        min_val = str(min_val).strip()
-        max_val = str(max_val).strip()
+        min_val, max_val = str(min_val).strip(), str(max_val).strip()
         
-        self.capture_state(f"🔍 <b>Range Search:</b> Tìm từ <b>{min_val}</b> đến <b>{max_val}</b>.")
-        self._search_range_recursive(self.root, min_val, max_val, results)
+        stats = {
+            'total_nodes': self._count_nodes(self.root), 
+            'visited_nodes': 0, 
+            'visited_ids': set()
+        }
+
+        self.capture_state(f"🚀 <b>Range Search (Batch Mode):</b> <b>{min_val}</b> ➜ <b>{max_val}</b>.<br>Tổng kho: {stats['total_nodes']} trang dữ liệu.")
         
+        self._search_range_batch(self.root, min_val, max_val, results, stats)
+        
+        # Calculate Efficiency Summary
+        visited = len(stats['visited_ids'])
+        total = stats['total_nodes']
+        eff = ((total - visited) / total * 100) if total > 0 else 0
+        
+        summary_msg = (
+            f"✅ <b>HOÀN TẤT:</b> Tìm thấy {len(results)} cuốn.<br>"
+            f"📊 <b>Hiệu năng B-Tree:</b> Chỉ đọc {visited}/{total} nodes.<br>"
+            f"⚡ <b>Tối ưu (Bỏ qua):</b> {eff:.2f}% khối lượng dữ liệu."
+        )
+        
+        # --- [UPDATED] Pass 'results' to highlight them permanently ---
         if results:
-            ids = [b.ma_sach for b in results]
-            display_ids = ', '.join(ids) if len(ids) < 5 else f"{', '.join(ids[:5])}..."
-            self.capture_state(f"✅ <b>Hoàn tất:</b> Thấy {len(results)} cuốn.<br>IDs: {display_ids}", highlight_nodes=self.root)
+            self.capture_state(summary_msg, highlight_nodes=None, found_keys=results)
         else:
-            self.capture_state(f"❌ <b>Hoàn tất:</b> Không có dữ liệu.")
-        return results
+            self.capture_state("❌ Không tìm thấy dữ liệu trong khoảng này.", highlight_nodes=self.root)
+            
+        return results, summary_msg
 
-    def _search_range_recursive(self, node, min_val, max_val, results):
-        i = 0
-        while i < len(node.keys) and node.keys[i].ma_sach < min_val: i += 1
-        
-        highlight_candidates = [k.ma_sach for k in node.keys if min_val <= k.ma_sach <= max_val]
-        if highlight_candidates:
-             self.capture_state(f"👀 <b>Quét Node:</b> Ứng viên {highlight_candidates}", highlight_nodes=[node])
-        
-        while i < len(node.keys):
-            if node.keys[i].ma_sach > max_val:
-                if not node.leaf: self._search_range_recursive(node.children[i], min_val, max_val, results)
-                return
-            if not node.leaf: self._search_range_recursive(node.children[i], min_val, max_val, results)
-            curr_key = node.keys[i].ma_sach
-            if min_val <= curr_key <= max_val: results.append(node.keys[i])
-            i += 1
-        if not node.leaf: self._search_range_recursive(node.children[i], min_val, max_val, results)
+    def _search_range_batch(self, node, min_val, max_val, results, stats):
+        if id(node) not in stats['visited_ids']:
+            stats['visited_ids'].add(id(node))
+            stats['visited_nodes'] += 1
 
-    # --- INSERT ---
+        start_idx = 0
+        while start_idx < len(node.keys) and node.keys[start_idx].ma_sach < min_val:
+            start_idx += 1
+            
+        end_idx = start_idx
+        while end_idx < len(node.keys) and node.keys[end_idx].ma_sach <= max_val:
+            end_idx += 1
+        
+        matched_keys_in_node = node.keys[start_idx:end_idx]
+        
+        if matched_keys_in_node:
+            keys_display = ", ".join([k.ma_sach for k in matched_keys_in_node])
+            results.extend(matched_keys_in_node) 
+            self.capture_state(
+                f"⚡ <b>Batch Scan (Disk I/O):</b> Tại Node này, lấy liền {len(matched_keys_in_node)} cuốn: <b>[{keys_display}]</b>", 
+                highlight_nodes=[node] 
+            )
+
+        if not node.leaf:
+            self._search_range_batch(node.children[start_idx], min_val, max_val, results, stats)
+            for i in range(start_idx + 1, end_idx + 1):
+                if i < len(node.children):
+                     self._search_range_batch(node.children[i], min_val, max_val, results, stats)
+
+    def _count_nodes(self, node):
+        if not node: return 0
+        count = 1
+        if not node.leaf:
+            for child in node.children:
+                count += self._count_nodes(child)
+        return count
+
+    # --- INSERT OPERATIONS ---
     def insert(self, book):
         self.steps_log = []
         self.affected_nodes = set()
@@ -178,14 +246,12 @@ class BTree:
                 return self._split_node(node)
             return None
         else:
-            # --- LOGIC MỚI: MÔ PHỎNG TÌM ĐƯỜNG ---
             direction = ""
             if i == 0: direction = f"nhỏ hơn {node.keys[0].ma_sach}"
             elif i == len(node.keys): direction = f"lớn hơn {node.keys[-1].ma_sach}"
             else: direction = f"giữa {node.keys[i-1].ma_sach} và {node.keys[i].ma_sach}"
 
             self.capture_state(f"⬇️ <b>Tìm vị trí:</b> {book.ma_sach} {direction} -> Xuống nhánh {i}.", highlight_nodes=[node, node.children[i]])
-            # -------------------------------------
 
             result = self._insert_recursive(node.children[i], book)
             if result:
@@ -216,7 +282,7 @@ class BTree:
         self.affected_nodes.update([node, new_node])
         return median, new_node
 
-    # --- DELETE ---
+    # --- DELETE OPERATIONS ---
     def delete(self, ma_sach):
         self.steps_log = [] 
         self.affected_nodes = set()
@@ -231,7 +297,6 @@ class BTree:
         
         if len(self.root.keys) == 0 and not self.root.leaf:
             new_root = self.root.children[0]
-            first_key = new_root.keys[0].ma_sach if new_root.keys else "..."
             self.root = new_root
             self.affected_nodes.add(self.root)
             self.capture_state(f"📉 <b>Hạ gốc:</b> Gốc rỗng. Con lên làm <b>Gốc Mới</b>.", [self.root])
@@ -249,21 +314,28 @@ class BTree:
                 self.capture_state(f"🎯 <b>Xóa tại Lá:</b> Xóa trực tiếp <b>{ma_sach}</b>.", [node])
                 node.keys.pop(i)
             else:
-                self.capture_state(f"👑 <b>Node Trong:</b> Cần tìm người thay thế.", [node])
+                self.capture_state(
+                    f"👑 <b>Node Trong:</b> Khóa <b>{ma_sach}</b> cần tìm người thay thế (Tiền nhiệm/Kế nhiệm).", 
+                    highlight_nodes=[node] 
+                )
                 if len(node.children[i].keys) > self.min_keys:
                     pred_key = self._get_predecessor(node, i)
-                    node.keys[i] = pred_key
-                    self.capture_state(f"🔄 <b>Thay thế (Tiền nhiệm):</b> Lấy <b>{pred_key.ma_sach}</b> lên. Xóa bản gốc.", [node])
+                    node.keys[i] = pred_key                    
+                    self.capture_state(
+                        f"👻 <b>Sao chép:</b> Đưa <b>{pred_key.ma_sach}</b> lên. Bản gốc bên dưới thành 'Bóng ma' chờ xóa.", 
+                        highlight_nodes=[node, node.children[i]]
+                    )
+                    
                     self._delete_recursive(node.children[i], pred_key.ma_sach)
-                    if len(node.children[i].keys) < self.min_keys: self._fix_child(node, i)
                 elif len(node.children[i+1].keys) > self.min_keys:
                     succ_key = self._get_successor(node, i)
                     node.keys[i] = succ_key
-                    self.capture_state(f"🔄 <b>Thay thế (Kế nhiệm):</b> Lấy <b>{succ_key.ma_sach}</b> lên. Xóa bản gốc.", [node])
+                    self.capture_state(
+                        f"👻 <b>Sao chép (Bóng ma):</b> Chép <b>{succ_key.ma_sach}</b> từ dưới lên. Bản gốc thành 'Bóng ma' chờ xóa.", 
+                        highlight_nodes=[node, node.children[i+1]]
+                    )
                     self._delete_recursive(node.children[i+1], succ_key.ma_sach)
-                    if len(node.children[i+1].keys) < self.min_keys: self._fix_child(node, i+1)
                 else:
-                    # --- LOGIC MỚI: XÓA TRƯỚC RỒI GỘP ---
                     child = node.children[i]
                     sibling = node.children[i+1]
                     self.capture_state(f"🔗 <b>Xóa & Gộp:</b> Xóa <b>{ma_sach}</b> khỏi cha, gộp 2 con.", [node, child, sibling])
@@ -276,7 +348,6 @@ class BTree:
                     self.affected_nodes.update([node, child])
                     
                     self.capture_state(f"✅ <b>Gộp xong:</b> Node con mới chứa {len(child.keys)} khóa.", [child])
-                    # -------------------------------------
         else:
             if node.leaf: return 
             self.capture_state(f"⬇️ <b>Đi xuống:</b> Nhánh {i}.", [node.children[i]])
@@ -297,31 +368,65 @@ class BTree:
     def _borrow_from_prev(self, parent, i):
         child = parent.children[i]
         sibling = parent.children[i-1]
+        
+        # Bước 1: Thông báo kế hoạch (Như cũ)
         self.capture_state(f"👈 <b>Mượn Trái:</b> Cha <b>{parent.keys[i-1].ma_sach}</b> xuống, Anh <b>{sibling.keys[-1].ma_sach}</b> lên.", [parent, child, sibling])
+        
+        # --- Logic thay đổi dữ liệu ---
         child.keys.insert(0, parent.keys[i-1])
         if not child.leaf: child.children.insert(0, sibling.children.pop())
         parent.keys[i-1] = sibling.keys.pop()
+        
         self.affected_nodes.update([child, sibling, parent])
+
+        # --- [MỚI] Bước 2: Show kết quả ngay sau khi xoay (Giữ highlight) ---
+        self.capture_state(f"✨ <b>Đã xoay:</b> Cấu trúc cân bằng lại sau khi mượn.", [parent, child, sibling])
 
     def _borrow_from_next(self, parent, i):
         child = parent.children[i]
         sibling = parent.children[i+1]
+        
+        # Bước 1: Thông báo kế hoạch (Như cũ)
         self.capture_state(f"👉 <b>Mượn Phải:</b> Cha <b>{parent.keys[i].ma_sach}</b> xuống, Em <b>{sibling.keys[0].ma_sach}</b> lên.", [parent, child, sibling])
+        
+        # --- Logic thay đổi dữ liệu ---
         child.keys.append(parent.keys[i])
         if not child.leaf: child.children.append(sibling.children.pop(0))
         parent.keys[i] = sibling.keys.pop(0)
+        
         self.affected_nodes.update([child, sibling, parent])
+
+        # --- [MỚI] Bước 2: Show kết quả ngay sau khi xoay (Giữ highlight) ---
+        self.capture_state(f"✨ <b>Đã xoay:</b> Cấu trúc cân bằng lại sau khi mượn.", [parent, child, sibling])
 
     def _merge(self, parent, i):
         child = parent.children[i]
         sibling = parent.children[i+1]
+        
+        # --- BƯỚC 1: Kế hoạch (Bạn đã có) ---
         self.capture_state(f"🔗 <b>Gộp Node:</b> Không mượn được. Gộp 2 con và khóa cha <b>{parent.keys[i].ma_sach}</b>.", [parent, child, sibling])
+        
+        # --- LOGIC THUẬT TOÁN ---
+        # 1. Đưa khóa cha xuống
         child.keys.append(parent.keys[i])
+        # 2. Gộp khóa của anh em
         child.keys.extend(sibling.keys)
+        # 3. Gộp con của anh em (nếu có)
         if not child.leaf: child.children.extend(sibling.children)
+        
+        # 4. Xóa khóa cha và node anh em thừa
         parent.keys.pop(i)
         parent.children.pop(i+1)
+        
+        # Cập nhật danh sách node bị ảnh hưởng (Lúc này sibling đã bị xóa, chỉ còn parent và child)
         self.affected_nodes.update([child, parent])
+
+        # --- [QUAN TRỌNG] BƯỚC 2: Show kết quả gộp (Bước đệm) ---
+        # Đây là bước giúp mắt người xem "nghỉ" và xác nhận khóa cha đã chui xuống dưới an toàn
+        self.capture_state(
+            f"✅ <b>Gộp xong:</b> Node con mới chứa {len(child.keys)} khóa.", 
+            highlight_nodes=[child] # Chỉ highlight node con mới gộp
+        )
 
     def _get_predecessor(self, node, i):
         cur = node.children[i]
@@ -333,6 +438,7 @@ class BTree:
         while not cur.leaf: cur = cur.children[0]
         return cur.keys[0]
 
+    # --- UTILITIES ---
     def get_all_books(self): return self._inorder(self.root)
     def _inorder(self, node):
         res = []
@@ -390,7 +496,6 @@ def add_book():
 @app.route('/api/books/random', methods=['POST'])
 def add_random_book():
     try:
-        # FORMAT BK-0000
         ma = f"BK-{random.randint(1, 9999):04d}"
         while btree.search(ma): ma = f"BK-{random.randint(1, 9999):04d}"
         ten = f"{random.choice(LIBRARY_DATA['prefixes'])} {random.choice(LIBRARY_DATA['subjects'])} {random.choice(LIBRARY_DATA['suffixes'])}"
@@ -432,8 +537,13 @@ def search_book(ma):
 @app.route('/api/books/range', methods=['POST'])
 def search_range():
     d = request.json
-    f = btree.search_range_with_animation(d.get('min_key'), d.get('max_key'))
-    return jsonify({'success': True, 'message': f"Tìm thấy {len(f)}.", 'books': [b.to_dict() for b in f], 'steps': btree.steps_log})
+    results, msg = btree.search_range_optimized(d.get('min_key'), d.get('max_key'))
+    return jsonify({
+        'success': True, 
+        'message': msg, 
+        'books': [b.to_dict() for b in results], 
+        'steps': btree.steps_log
+    })
 
 @app.route('/api/books/<ma>', methods=['DELETE'])
 def delete_book(ma):

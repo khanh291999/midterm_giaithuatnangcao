@@ -3,25 +3,84 @@ const CONFIG = { NODE_SPACING: 40, LEVEL_HEIGHT: 120 };
 
 let panzoomInstance = null;
 
+// Inject CSS styles dynamically
 const style = document.createElement('style');
 style.innerHTML = `
-    /* --- ANIMATIONS --- */
-    @keyframes pulse-generic { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-    
-    .node-search-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
-    .node-insert-active { border-color: #f59e0b !important; background-color: #fffbeb !important; }
-    .node-delete-mode { border-color: #ef4444 !important; background-color: #fef2f2 !important; border-width: 3px !important; animation: pulse-generic 1s infinite; }
-
-    .key-found { background-color: #22c55e !important; color: white !important; transform: scale(1.2); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3); z-index: 50; }
-    .key-delete-target { background-color: #dc2626 !important; color: white !important; transform: scale(1.1); animation: red-flash 1.5s infinite; border: 2px solid #fee2e2 !important; z-index: 50; }
-    .key-range-match { background-color: #9333ea !important; color: white !important; box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.3); }
-
-    @keyframes red-flash { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-
+    /* --- GENERAL UI --- */
     #animMessage code { background: #e0e7ff; color: #4338ca; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-weight: bold; border: 1px solid #c7d2fe; }
     #treeStructure { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; overflow: hidden; cursor: grab; }
     #treeStructure:active { cursor: grabbing; }
     .tippy-box[data-theme~='translucent'] { background-color: rgba(30, 41, 59, 0.9); color: white; backdrop-filter: blur(4px); }
+    
+    /* --- NODE STATES --- */
+    .node-search-active { border-color: #3b82f6 !important; } /* Xanh dương */
+    .node-insert-active { border-color: #10b981 !important; } /* Xanh lá */
+    .node-delete-mode { border-color: #ef4444 !important; }   /* Đỏ */
+    
+    /* Tràn (Overflow) -> Đỏ nhấp nháy */
+    .node-overflow { 
+        border-color: #ef4444 !important; 
+        background-color: #fef2f2 !important; 
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.5) !important;
+        animation: pulse-red 1s infinite;
+    }
+    
+    /* Batch Scan (Disk I/O) -> Nền vàng nhạt */
+    .node-batch-active { 
+        border-color: #f59e0b !important; 
+        background-color: #fffbeb !important; 
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); 
+    }
+
+    /* --- KEY STATES --- */
+    .key-found { background-color: #22c55e !important; transform: scale(1.1); box-shadow: 0 0 10px rgba(34, 197, 94, 0.6); z-index: 10; }
+    .key-delete-target { background-color: #ef4444 !important; animation: shake 0.5s; }
+    
+    /* Trung vị (Median) -> Vàng cam nổi bật */
+    .key-median-target {
+        background-color: #f59e0b !important; 
+        color: white !important;
+        transform: scale(1.25) !important;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+        z-index: 20;
+        border: 2px solid white;
+    }
+
+    /* Range Match -> Tím */
+    .key-range-match { 
+        background-color: #8b5cf6 !important; 
+        color: white !important; 
+        transform: scale(1.1); 
+        z-index: 10;
+        box-shadow: 0 0 5px rgba(139, 92, 246, 0.5);
+    }
+    
+    /* Kết quả cuối cùng -> Tím sáng + Viền trắng */
+    .key-final-result { 
+        background-color: #7c3aed !important; 
+        color: white !important; 
+        transform: scale(1.15) !important; 
+        box-shadow: 0 0 0 2px white, 0 0 10px #7c3aed !important; 
+        z-index: 10; 
+    }
+
+    /* [GHOST KEY] Hiệu ứng bóng ma */
+    .key-ghost {
+        background-color: #e5e7eb !important; /* Xám nhạt */
+        color: #9ca3af !important;            /* Chữ chìm */
+        opacity: 0.5;                         /* Rất mờ */
+        border: 2px dashed #9ca3af !important; /* Viền nét đứt */
+        transform: scale(0.9);
+        box-shadow: none !important;
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
 `;
 document.head.appendChild(style);
 
@@ -56,15 +115,19 @@ class AnimationManager {
     renderStep() {
         if (this.currentIndex < 0 || this.currentIndex >= this.steps.length) return;
         const step = this.steps[this.currentIndex];
+        
         this.msgEl.innerHTML = step.message; 
         this.counterEl.innerText = `${this.currentIndex + 1} / ${this.steps.length}`;
         const pct = ((this.currentIndex + 1) / this.steps.length) * 100;
         this.progressEl.style.width = `${pct}%`;
-        drawTreeProfessional(step.tree, step.highlights, this.targetKey, step.message); 
+        
+        // Vẽ cây với đầy đủ tham số
+        drawTreeProfessional(step.tree, step.highlights, this.targetKey, step.message, step.found_keys); 
     }
 
     next() { if (this.currentIndex < this.steps.length - 1) { this.currentIndex++; this.renderStep(); } else { this.stop(); } }
     prev() { if (this.currentIndex > 0) { this.currentIndex--; this.renderStep(); } }
+    
     play() {
         if (this.isPlaying) { this.stop(); } else {
             this.isPlaying = true;
@@ -74,9 +137,10 @@ class AnimationManager {
                 if (!this.isPlaying) return;
                 if (this.currentIndex < this.steps.length - 1) {
                     this.next();
-                    let delay = 1200; 
+                    let delay = 1000; 
                     const msg = this.steps[this.currentIndex]?.message || "";
-                    if (["Gộp", "Tách", "Thay thế", "Mượn", "Hạ gốc"].some(kw => msg.includes(kw))) delay = 2500; 
+                    // Tăng thời gian chờ cho các bước quan trọng
+                    if (["Gộp", "Tách", "Thay thế", "Mượn", "Hạ gốc", "Batch Scan", "Disk I/O", "HOÀN TẤT", "Tràn", "Trung vị", "TÌM THẤY"].some(kw => msg.includes(kw))) delay = 2500; 
                     this.timer = setTimeout(runNextStep, delay);
                 } else { this.stop(); }
             };
@@ -96,13 +160,40 @@ document.addEventListener('DOMContentLoaded', () => { loadAllData(); setupEventL
 
 function setupEventListeners() {
     const addForm = document.getElementById('addBookForm');
-    if (addForm) addForm.addEventListener('submit', async (e) => { e.preventDefault(); const ma = document.getElementById('addMaSach').value.trim(); const ten = document.getElementById('addTenSach').value.trim(); const tg = document.getElementById('addTacGia').value.trim(); if (!ma || !ten || !tg) return showNotification('Thiếu thông tin', 'warning'); await addBook({ ma_sach: ma, ten_sach: ten, tac_gia: tg }, ma); addForm.reset(); });
+    if (addForm) addForm.addEventListener('submit', async (e) => { 
+        e.preventDefault(); 
+        const ma = document.getElementById('addMaSach').value.trim(); 
+        const ten = document.getElementById('addTenSach').value.trim(); 
+        const tg = document.getElementById('addTacGia').value.trim(); 
+        if (!ma || !ten || !tg) return showNotification('Thiếu thông tin', 'warning'); 
+        await addBook({ ma_sach: ma, ten_sach: ten, tac_gia: tg }, ma); 
+        addForm.reset(); 
+    });
+
     const searchForm = document.getElementById('searchBookForm');
-    if (searchForm) searchForm.addEventListener('submit', async (e) => { e.preventDefault(); const ma = document.getElementById('searchMaSach').value.trim(); if (!ma) return showNotification('Nhập mã', 'warning'); await searchBook(ma); });
+    if (searchForm) searchForm.addEventListener('submit', async (e) => { 
+        e.preventDefault(); 
+        const ma = document.getElementById('searchMaSach').value.trim(); 
+        if (!ma) return showNotification('Nhập mã', 'warning'); 
+        await searchBook(ma); 
+    });
+
     const deleteForm = document.getElementById('deleteBookForm');
-    if (deleteForm) deleteForm.addEventListener('submit', async (e) => { e.preventDefault(); const ma = document.getElementById('deleteMaSach').value.trim(); if (!ma) return showNotification('Nhập mã', 'warning'); if(confirm(`Xóa ${ma}?`)) { await deleteBookById(ma); deleteForm.reset(); } });
+    if (deleteForm) deleteForm.addEventListener('submit', async (e) => { 
+        e.preventDefault(); 
+        const ma = document.getElementById('deleteMaSach').value.trim(); 
+        if (!ma) return showNotification('Nhập mã', 'warning'); 
+        if(confirm(`Xóa ${ma}?`)) { await deleteBookById(ma); deleteForm.reset(); } 
+    });
+
     const rangeForm = document.getElementById('rangeSearchForm');
-    if (rangeForm) rangeForm.addEventListener('submit', async (e) => { e.preventDefault(); const min = document.getElementById('rangeStart').value.trim(); const max = document.getElementById('rangeEnd').value.trim(); if (!min || !max) return showNotification('Nhập khoảng', 'warning'); await executeRangeSearch(min, max); });
+    if (rangeForm) rangeForm.addEventListener('submit', async (e) => { 
+        e.preventDefault(); 
+        const min = document.getElementById('searchRangeStart').value.trim(); 
+        const max = document.getElementById('searchRangeEnd').value.trim(); 
+        if (!min || !max) return showNotification('Nhập đủ khoảng min - max', 'warning'); 
+        await executeRangeSearch(min, max); 
+    });
 }
 
 // --- API FUNCTIONS ---
@@ -154,7 +245,6 @@ async function searchBook(ma) {
         switchTab('tree'); const resultDiv = document.getElementById('searchResult');
         if (data.success) {
             resultDiv.innerHTML = `<div class="p-3 bg-green-50 text-green-800 border-green-200 border rounded">Tìm thấy: ${data.book.ten_sach}</div>`;
-            showNotification('Tìm thấy', 'success');
         } else {
             resultDiv.innerHTML = `<div class="p-3 bg-red-50 text-red-800 border-red-200 border rounded">Không tìm thấy ${ma}</div>`;
             showNotification('Không tìm thấy', 'error');
@@ -177,28 +267,35 @@ async function deleteBookById(ma) {
 
 async function executeRangeSearch(min, max) {
     try {
-        showNotification('Quét Range...', 'info');
         const res = await fetch('/api/books/range', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({min_key: min, max_key: max})});
         const data = await res.json();
+        
         if(data.success) {
-            switchTab('tree'); showNotification(data.message, 'success');
-            if(data.steps && data.steps.length > 0) { animManager.start(data.steps, null, false); animManager.play(); }
+            switchTab('tree'); 
             const resultDiv = document.getElementById('searchResult');
-            if(resultDiv) resultDiv.innerHTML = `<div class="p-3 bg-purple-50 text-purple-800 border-purple-200 border rounded">Kết quả: ${data.books.length} cuốn</div>`;
-        } else showNotification(data.message, 'error');
+            if(resultDiv) {
+                resultDiv.innerHTML = `<div class="p-3 bg-green-50 text-green-900 border-green-200 border rounded text-sm shadow-sm">${data.message}</div>`;
+            }
+            if(data.steps && data.steps.length > 0) { 
+                animManager.start(data.steps, null, false); 
+                animManager.play(); 
+            }
+        } else { 
+            showNotification(data.message, 'error'); 
+        }
     } catch(e) { showNotification('Lỗi', 'error'); }
 }
 
 async function resetTree() { if(!confirm('Xóa hết?')) return; try { await fetch('/api/reset', { method: 'POST' }); await loadAllData(); showNotification('Đã reset'); } catch(e){} }
 async function updateDegree() { const m = document.getElementById('degreeInput').value; try { await fetch('/api/config/degree', { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({m:m})}); await loadAllData(); showNotification('Đã đổi m='+m); } catch(e){} }
 
-// --- VISUALIZATION CORE ---
+// --- VISUALIZATION CORE (UPDATED & FIXED) ---
 
-function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, stepMessage = "") {
+function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, stepMessage = "", foundKeys = null) {
     const container = document.getElementById('treeStructure');
     let panzoomWrapper = document.getElementById('panzoomWrapper');
     
-    // 1. Tạo Wrapper 1 lần
+    // Init Panzoom
     if (!panzoomWrapper) {
         panzoomWrapper = document.createElement('div');
         panzoomWrapper.id = 'panzoomWrapper';
@@ -217,11 +314,39 @@ function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, 
         return;
     }
 
+    // --- CONTEXT ---
     const deleteKeywords = ["Xóa", "Gộp", "Mượn", "Thay thế", "Delete", "Merge", "Borrow", "Replace", "Hạ gốc"];
     const isDeleteMode = stepMessage && deleteKeywords.some(kw => stepMessage.includes(kw));
-    const isRangeMode = stepMessage && (stepMessage.includes("Range") || stepMessage.includes("khoảng"));
+    const isRangeMode = stepMessage && (stepMessage.includes("Range") || stepMessage.includes("khoảng") || stepMessage.includes("Scan") || stepMessage.includes("Disk I/O") || stepMessage.includes("HOÀN TẤT"));
+    const isBatchMode = stepMessage && (stepMessage.includes("Batch Scan") || stepMessage.includes("Disk I/O"));
+    const isOverflow = stepMessage && (stepMessage.includes("Tràn") || stepMessage.includes("Overflow"));
+    const isMedianStep = stepMessage && (stepMessage.includes("Trung vị") || stepMessage.includes("Median"));
+    const isFoundStep = stepMessage && (stepMessage.includes("TÌM THẤY") || stepMessage.includes("Found") || stepMessage.includes("Match"));
+    
+    // [GHOST] Xác định chế độ bóng ma
+    const isGhostStep = stepMessage && (stepMessage.includes("Sao chép") || stepMessage.includes("Copy") || stepMessage.includes("Bóng ma"));
+
+    // [FIX QUAN TRỌNG] Tìm chính xác "nhân vật chính" của bước Bóng ma
+    let effectiveTargetKey = targetKey;
+    if (isGhostStep) {
+        // Regex: Tìm chuỗi dạng BK-xxxx nằm trong thẻ <b>
+        const match = stepMessage.match(/<b>(BK-\d+)<\/b>/); 
+        if (match) effectiveTargetKey = match[1];
+    }
 
     const treeData = calculateTreeLayout(root);
+    
+    // [FIX LOGIC DEPTH] Tìm độ sâu của node CAO NHẤT trong danh sách highlight (đó chính là Cha)
+    let minHighlightDepth = Infinity;
+    if (isGhostStep && affectedNodesList) {
+        treeData.nodes.forEach(n => {
+            const sig = n.data.keys.map(k => k.ma_sach).join(',');
+            // Nếu node này nằm trong danh sách affected
+            if (affectedNodesList.some(s => s.join(',') === sig)) {
+                if (n.depth < minHighlightDepth) minHighlightDepth = n.depth;
+            }
+        });
+    }
     
     const canvas = document.createElement('div'); 
     canvas.className = 'btree-canvas relative';
@@ -234,35 +359,35 @@ function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, 
     canvas.appendChild(svgLayer);
 
     let targetNodeData = null;
-
-    // Tính toán Offset để căn giữa
     const offsetX = (parseInt(canvas.style.width) - treeData.width) / 2;
 
     treeData.nodes.forEach(node => {
         const nodeEl = document.createElement('div'); 
         nodeEl.className = 'btree-node-group absolute flex gap-1 bg-slate-700 p-1.5 rounded-xl shadow-lg border-2 border-slate-600 transition-all duration-300';
         
-        // TÍNH TOẠ ĐỘ VÀ LƯU VÀO BIẾN REALX/REALY NGAY LẬP TỨC
         node.realX = node.x + offsetX;
         node.realY = node.y + 50;
-
         nodeEl.style.left = `${node.realX}px`; 
         nodeEl.style.top = `${node.realY}px`; 
 
         const keys = node.data.keys || [];
         const currentNodeSignature = keys.map(k => k.ma_sach || k).join(',');
 
-        // Highlight Logic
+        // 1. HIGHLIGHT NODE
         if (affectedNodesList && Array.isArray(affectedNodesList)) {
             if (affectedNodesList.some(sig => sig.join(',') === currentNodeSignature)) {
-                if (isDeleteMode) nodeEl.classList.add('node-delete-mode');
+                if (isOverflow) nodeEl.classList.add('node-overflow');
+                else if (isBatchMode) nodeEl.classList.add('node-batch-active');
+                else if (isDeleteMode) nodeEl.classList.add('node-delete-mode');
                 else if (stepMessage.includes("Chèn") || stepMessage.includes("Insert")) nodeEl.classList.add('node-insert-active');
                 else nodeEl.classList.add('node-search-active');
+                
                 if (!targetNodeData) targetNodeData = node;
             }
         }
         if (keys.length === 0) { nodeEl.style.width = '20px'; nodeEl.style.height = '20px'; nodeEl.classList.add('bg-slate-500'); }
 
+        // 2. HIGHLIGHT KEYS
         keys.forEach(key => {
             const keyEl = document.createElement('div'); 
             keyEl.className = 'btree-key h-9 px-3 min-w-[40px] rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold text-xs shadow-inner cursor-default hover:bg-blue-400 transition-colors whitespace-nowrap';
@@ -270,29 +395,45 @@ function drawTreeProfessional(root, affectedNodesList = null, targetKey = null, 
             keyEl.innerText = currentMa;
             keyEl.setAttribute('data-tippy-content', `<b>${key.ten_sach}</b><br>${key.tac_gia}`);
 
-            if (targetKey && currentMa === targetKey) {
-                if (isDeleteMode) keyEl.classList.add('key-delete-target');
-                else keyEl.classList.add('key-found');
-                targetNodeData = node; 
-            } else if (isRangeMode && stepMessage.includes(currentMa)) {
+            // Priority 1: GHOST KEY (Sửa đổi: Dùng effectiveTargetKey)
+            if (isGhostStep && effectiveTargetKey && currentMa === effectiveTargetKey) {
+                // Nếu node này có độ sâu > minHighlightDepth => Nó là Node Con (Bản gốc)
+                if (node.depth > minHighlightDepth) {
+                    keyEl.classList.add('key-ghost'); 
+                } else {
+                    // Nếu nó là Node Cha (Bản sao)
+                    keyEl.classList.add('key-delete-target'); 
+                }
+            }
+            // Priority 2: TARGET CHÍNH (Search/Delete đơn)
+            else if (targetKey && currentMa === targetKey) {
+                if (isDeleteMode) { keyEl.classList.add('key-delete-target'); targetNodeData = node; }
+                else if (isFoundStep) { keyEl.classList.add('key-found'); targetNodeData = node; }
+            } 
+            // Priority 3: KẾT QUẢ CUỐI CÙNG
+            else if (foundKeys && foundKeys.includes(currentMa)) {
+                keyEl.classList.add('key-final-result'); 
+            }
+            // Priority 4: TRUNG VỊ
+            else if (isMedianStep && stepMessage.includes(currentMa)) {
+                keyEl.classList.add('key-median-target');
+            }
+            // Priority 5: RANGE MATCH
+            else if (isRangeMode && stepMessage.includes(currentMa)) {
                 keyEl.classList.add('key-range-match');
             }
+            
             nodeEl.appendChild(keyEl);
         });
         canvas.appendChild(nodeEl);
 
-        // VẼ ĐƯỜNG NỐI (FIXED: TÍNH TOÁN DỰA TRÊN OFFSET, KHÔNG PHỤ THUỘC THỨ TỰ RENDER)
         if (node.parent) { 
-            // Ta tính toán lại tọa độ của Parent dựa trên dữ liệu gốc + Offset
-            // (Vì có thể Parent chưa được render nên ta không dùng node.parent.realX)
             const parentRealX = node.parent.x + offsetX;
             const parentRealY = node.parent.y + 50;
-
             const startX = parentRealX + (node.parent.width/2); 
             const startY = parentRealY + node.parent.height; 
             const endX = node.realX + (node.width/2); 
             const endY = node.realY;
-
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             const d = `M ${startX} ${startY} C ${startX} ${(startY+endY)/2}, ${endX} ${(startY+endY)/2}, ${endX} ${endY}`;
             path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#94a3b8'); path.setAttribute('stroke-width', '2');
@@ -326,6 +467,7 @@ function renderBookTable(books) {
     if (!books || books.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">Trống</td></tr>`; return; }
     tbody.innerHTML = books.map(b => `<tr class="hover:bg-gray-100 border-b"><td class="px-4 py-3 font-bold text-indigo-600">${b.ma_sach}</td><td class="px-4 py-3">${b.ten_sach}</td><td class="px-4 py-3">${b.tac_gia}</td><td class="px-4 py-3 text-center"><button onclick="if(confirm('Xóa?')) deleteBookById('${b.ma_sach}')" class="text-red-500 hover:text-red-700"><i class="bi bi-trash"></i></button></td></tr>`).join('');
 }
+
 function calculateTreeLayout(root) {
     let nodes = []; let maxDepth = 0; const KEY_WIDTH = 66; 
     function traverse(node, depth, parent) {
